@@ -36,7 +36,7 @@ I2C_SCL = GPIO 3
 Am unteren Board sollte I2C sein (meist beschriftet mit SDA/SCL)
 
 # Baum anzeigen
-cd /mnt/c/Users/knigh/LF7/learning_assistant && tree -L 6 -I 'node_modules|.next|.git|dist|build'
+cd /mnt/c/Users/knigh/LF7_project && tree -L 6 -I 'node_modules|.next|.git|dist|build'
 
 VOC and eCO2 Gas Sensor (SKU: 101020512)
     Chip: Wahrscheinlich SGP30 oder CCS811
