@@ -1,0 +1,19 @@
+# requirements.txt
+
+# GPIO
+RPi.GPIO>=0.7.1
+
+# I2C und Sensoren
+adafruit-circuitpython-sgp30>=3.0.0
+adafruit-circuitpython-busdevice>=5.0.0
+
+# Grove Library (alternativ über install script)
+# grove.py
+
+# Benachrichtigungen
+requests>=2.31.0
+discord-webhook>=1.3.0
+python-telegram-bot>=20.0
+
+# Utilities
+python-dotenv>=1.0.0

@@ -1,0 +1,89 @@
+ '''
+Commands:
+node-red --version
+
+Projekt
+>>Effektiver Lernen:
+
+-Schrittzähler an Person - Fütterung datenbank & Rückmeldung (Iot) über zurückgelegte Strecke, ggf kcal verbrauch etc, hauptsache einfach --> Feedback - mit Telegram oder Discord versenden
+-Startknopf (timer von 30min läuft- Arbeitseit)
+-Pauseknopf (10min Pauseknopf)
+ggf -Resetknopf (Bei Fehlerhaftem Betätigen)
+-Buzzer wenn Timer abläuft /bei Pausenablauf und Beginn Rückmeldung an Handy /Push Naxchricht
+-Co2 Messgerät (gibt Ton durch Buzzer wieder alá Lüfte Mal!)
+
+'''
+
+# Die Maker Plate hat eigene Pin-Mappings!
+# Schau auf die Beschriftung deines unteren Boards
+
+# BEISPIEL (musst du anpassen an deine Beschriftung):
+BUTTON_START = "D0"   # Erster Button links
+BUTTON_PAUSE = "D1"   # Mittlerer Button
+BUTTON_RESET = "D2"   # Dritter Button
+
+BUZZER = "D3"         # Der Buzzer
+
+LED_WORK = "D4"       # Grüne LED
+LED_PAUSE = "D5"      # Gelbe LED
+
+# I2C für CO2 Sensor (standardmäßig)
+I2C_SDA = GPIO 2
+I2C_SCL = GPIO 3
+
+
+# Schritt 3: CO2-Sensor anschließen
+Am unteren Board sollte I2C sein (meist beschriftet mit SDA/SCL)
+
+# Baum anzeigen
+cd /mnt/c/Users/knigh/LF7/learning_assistant && tree -L 6 -I 'node_modules|.next|.git|dist|build'
+
+VOC and eCO2 Gas Sensor (SKU: 101020512)
+    Chip: Wahrscheinlich SGP30 oder CCS811
+    Schnittstelle: I2C
+    Misst: VOC (Volatile Organic Compounds) + eCO2 (equivalent CO2)
+    --> Wichtig: Dies ist ein eCO2-Sensor (berechnet aus VOC), kein echter CO2-Sensor wie der SCD30!
+
+Step Counter (SKU: 101020583)
+    Chip: Wahrscheinlich BMA400 (3-Achsen Beschleunigungssensor)
+    Schnittstelle: I2C
+    Misst: Schritte, Aktivität, Neigung
+
+
+Wichtig für Installationen
+
+# 1. Gehe in dein Projektverzeichnis
+cd /mnt/c/Users/knigh/LF7_project
+
+# 2. Aktiviere das Virtual Environment
+source ~/grove_env/bin/activate
+
+
+    Ablauf
+1. 🎮 Button 1 kurz drücken
+   → 🎓 Session startet automatisch
+   → 📱 Discord: "Hey Alicia! Deine Lerneinheit wurde gestartet!"
+   → 🟦 30min Arbeitszeit läuft
+
+2. ⏰ Nach 30 Min
+   → 🔊 Langer Piepton
+   → 📱 Discord: "Deine 30-Minuten Lernphase ist vorbei!"
+
+3. 🎮 Button 2 kurz drücken
+   → 🟩 10min Pause läuft
+
+4. ⏰ Nach 10 Min
+   → 🔊 Langer Piepton
+   → 📱 Discord: "Deine Pause ist abgelaufen!"
+
+5. ... weitere Lern-/Pausezyklen ...
+
+6. 🎮 Button 1 für 5+ Sekunden halten
+   → 🛑 Session beendet
+   → 📊 Report im Terminal + Discord:
+      "Session-Report für Alicia
+       Lernzeit: 90 Min
+       Pausenzeit: 30 Min
+       eCO2 Durchschnitt: 542 ppm
+       Schritte: 1.247
+       Tolle Arbeit! 🎉"
