@@ -2,7 +2,7 @@
 """
 Button 1 - Arbeitszeit + Session Management
 - Kurz (< 2s):     Start Arbeitszeit
-- Lang (2-5s):     Reset Timer
+- Doppelt (kurz)    Reset Timer
 - Extra-Lang (5+s): Session beenden + Report
 """
 

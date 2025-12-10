@@ -3,7 +3,10 @@
 
 REPO_PATH="/mnt/c/Users/knigh/LF7_project"
 REMOTE_URL="https://github.com/Johnyboi77/LF7_project.git"
-BRANCH="main"
+BRANCH="dev"
+
+# TO change branch
+# -->     git checkout -b dev
 
 cd "$REPO_PATH" || exit 1
 
@@ -18,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Base Structure mit Discord Einbindung"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Base Structure, Discord + Supabaseverknüpfung"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"

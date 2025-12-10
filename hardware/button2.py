@@ -2,7 +2,7 @@
 """
 Button 2 - Pausenzeit
 - Kurz (< 2s): Start Pausenzeit
-- Lang (2+s):  Reset Timer
+- Doppelt (kurz):  Reset Timer
 """
 
 import RPi.GPIO as GPIO
