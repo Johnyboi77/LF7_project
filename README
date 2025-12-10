@@ -87,3 +87,86 @@ source ~/grove_env/bin/activate
        eCO2 Durchschnitt: 542 ppm
        Schritte: 1.247
        Tolle Arbeit! 🎉"
+
+
+Pi Top einrichten (32 System1)
+
+#1  Verbindung per ssh 
+ssh pi@192.168.0.53
+
+# 2 Auf Pi Top zu Projekt Nvagieren
+
+   # Jetzt bist du auf dem PiTop!
+   cd ~/LF7_project
+
+   # Prüfe ob alle Dateien da sind:
+   pi@pi-top:~/LF7_project $ ls -la
+
+# Du solltest sehen:
+# test_einzeln/
+# hardware/
+# services/
+# database/
+# mock_hardware/
+# config.py
+# etc.
+
+   # Virtual Environment erstellen:
+   pi@pi-top:~/LF7_project $ python3 -m venv venv
+   pi@pi-top:~/LF7_project $ source venv/bin/activate
+
+   # Dependencies installieren:
+   (venv) pi@pi-top:~/LF7_project $ pip3 install --upgrade pip
+   (venv) pi@pi-top:~/LF7_project $ pip3 install RPi.GPIO
+
+   # Falls requirements.txt vorhanden:
+   (venv) pi@pi-top:~/LF7_project $ pip3 install -r requirements.txt
+
+   # Nur wichtige Ordner auf PiTop Kopieren
+   scp -r hardware services database config.py requirements.txt pi@192.168.0.53:~/LF7_project/
+
+# PITOP KONFIGURATION :
+
+cd /mnt/c/Users/knigh/LF7_project
+
+# Prüfe welche Ordner existieren:
+ls -la
+
+# Übertrage alles:
+scp -r * pi@192.168.0.53:~/LF7_project/
+# PW: pi-top
+
+# ===== WECHSEL ZUM PITOP =====
+# 2. SSH zum PiTop:
+ssh pi@192.168.0.53
+
+# ===== AUF DEM PITOP =====
+# 3. Setup:
+cd ~/LF7_project
+python3 -m venv venv
+source venv/bin/activate
+# --> Jetzt siehst du: (venv) pi@pi-top:~/LF7_project $
+
+# 4. Installiere Pakete (IM venv!):
+pip3 install RPi.GPIO python-dotenv requests
+
+# 4. Test:
+python3 config.py
+python3 files..
+_______________________
+
+
+Besser:? (auf Pi Top)
+
+cd ~/LF7_project
+rm -rf venv
+
+# 2. Installiere zuerst python3-venv (falls nicht vorhanden):
+sudo apt update
+sudo apt install python3-venv python3-full -y
+
+# 3. Erstelle ein neues Virtual Environment:
+python3 -m venv venv
+
+# 4. Aktiviere es RICHTIG:
+source venv/bin/activate

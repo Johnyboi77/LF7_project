@@ -10,8 +10,8 @@ echo "════════════════════════�
 echo ""
 
 # ===== KONFIGURATION =====
-PITOP1_IP="192.168.1.100"  # ← ANPASSEN!
-PITOP2_IP="192.168.1.101"  # ← ANPASSEN!
+PITOP1_IP="192.168.0.53"  # ← ANPASSEN!
+PITOP2_IP="192.168.0.54"  # ← ANPASSEN!
 PITOP_USER="pi"
 PROJECT_DIR="/home/pi/LF7_project"
 
