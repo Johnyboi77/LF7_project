@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Base Structure, Discord + Supabaseverknüpfung"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - PiTop Vorbereitung"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"
