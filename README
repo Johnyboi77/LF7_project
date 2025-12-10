@@ -1,65 +1,7 @@
- '''
-Commands:
-node-red --version
-
 Projekt
->>Effektiver Lernen:
+>>Effektiver Lernen
 
--Schrittzähler an Person - Fütterung datenbank & Rückmeldung (Iot) über zurückgelegte Strecke, ggf kcal verbrauch etc, hauptsache einfach --> Feedback - mit Telegram oder Discord versenden
--Startknopf (timer von 30min läuft- Arbeitseit)
--Pauseknopf (10min Pauseknopf)
-ggf -Resetknopf (Bei Fehlerhaftem Betätigen)
--Buzzer wenn Timer abläuft /bei Pausenablauf und Beginn Rückmeldung an Handy /Push Naxchricht
--Co2 Messgerät (gibt Ton durch Buzzer wieder alá Lüfte Mal!)
-
-'''
-
-# Die Maker Plate hat eigene Pin-Mappings!
-# Schau auf die Beschriftung deines unteren Boards
-
-# BEISPIEL (musst du anpassen an deine Beschriftung):
-BUTTON_START = "D0"   # Erster Button links
-BUTTON_PAUSE = "D1"   # Mittlerer Button
-BUTTON_RESET = "D2"   # Dritter Button
-
-BUZZER = "D3"         # Der Buzzer
-
-LED_WORK = "D4"       # Grüne LED
-LED_PAUSE = "D5"      # Gelbe LED
-
-# I2C für CO2 Sensor (standardmäßig)
-I2C_SDA = GPIO 2
-I2C_SCL = GPIO 3
-
-
-# Schritt 3: CO2-Sensor anschließen
-Am unteren Board sollte I2C sein (meist beschriftet mit SDA/SCL)
-
-# Baum anzeigen
-cd /mnt/c/Users/knigh/LF7_project && tree -L 6 -I 'node_modules|.next|.git|dist|build'
-
-VOC and eCO2 Gas Sensor (SKU: 101020512)
-    Chip: Wahrscheinlich SGP30 oder CCS811
-    Schnittstelle: I2C
-    Misst: VOC (Volatile Organic Compounds) + eCO2 (equivalent CO2)
-    --> Wichtig: Dies ist ein eCO2-Sensor (berechnet aus VOC), kein echter CO2-Sensor wie der SCD30!
-
-Step Counter (SKU: 101020583)
-    Chip: Wahrscheinlich BMA400 (3-Achsen Beschleunigungssensor)
-    Schnittstelle: I2C
-    Misst: Schritte, Aktivität, Neigung
-
-
-Wichtig für Installationen
-
-# 1. Gehe in dein Projektverzeichnis
-cd /mnt/c/Users/knigh/LF7_project
-
-# 2. Aktiviere das Virtual Environment
-source ~/grove_env/bin/activate
-
-
-    Ablauf
+# Projektablauf
 1. 🎮 Button 1 kurz drücken
    → 🎓 Session startet automatisch
    → 📱 Discord: "Hey Alicia! Deine Lerneinheit wurde gestartet!"
@@ -88,85 +30,65 @@ source ~/grove_env/bin/activate
        Schritte: 1.247
        Tolle Arbeit! 🎉"
 
+# Prüfen ob es diese sind
+VOC and eCO2 Gas Sensor (SKU: 101020512)
+    Chip: Wahrscheinlich SGP30 oder CCS811
+    Schnittstelle: I2C
+    Misst: VOC (Volatile Organic Compounds) + eCO2 (equivalent CO2)
+    --> Wichtig: Dies ist ein eCO2-Sensor (berechnet aus VOC), kein echter CO2-Sensor wie der SCD30!
 
-Pi Top einrichten (32 System1)
+Step Counter (SKU: 101020583)
+    Chip: Wahrscheinlich BMA400 (3-Achsen Beschleunigungssensor)
+    Schnittstelle: I2C
+    Misst: Schritte, Aktivität, Neigung
 
-#1  Verbindung per ssh 
-ssh pi@192.168.0.53
+# Baum anzeigen
+cd /mnt/c/Users/knigh/LF7_project && tree -L 6 -I 'node_modules|.next|.git|dist|build'
 
-# 2 Auf Pi Top zu Projekt Nvagieren
+# Wichtig für sämtliche lokalen Installationen
 
-   # Jetzt bist du auf dem PiTop!
-   cd ~/LF7_project
-
-   # Prüfe ob alle Dateien da sind:
-   pi@pi-top:~/LF7_project $ ls -la
-
-# Du solltest sehen:
-# test_einzeln/
-# hardware/
-# services/
-# database/
-# mock_hardware/
-# config.py
-# etc.
-
-   # Virtual Environment erstellen:
-   pi@pi-top:~/LF7_project $ python3 -m venv venv
-   pi@pi-top:~/LF7_project $ source venv/bin/activate
-
-   # Dependencies installieren:
-   (venv) pi@pi-top:~/LF7_project $ pip3 install --upgrade pip
-   (venv) pi@pi-top:~/LF7_project $ pip3 install RPi.GPIO
-
-   # Falls requirements.txt vorhanden:
-   (venv) pi@pi-top:~/LF7_project $ pip3 install -r requirements.txt
-
-   # Nur wichtige Ordner auf PiTop Kopieren
-   scp -r hardware services database config.py requirements.txt pi@192.168.0.53:~/LF7_project/
-
-# PITOP KONFIGURATION :
-
+1. Gehe in dein Projektverzeichnis
 cd /mnt/c/Users/knigh/LF7_project
 
-# Prüfe welche Ordner existieren:
-ls -la
+2. Aktiviere das Virtual Environment
+source ~/grove_env/bin/activate
 
-# Übertrage alles:
-scp -r * pi@192.168.0.53:~/LF7_project/
-# PW: pi-top
+# Pi Top Vorbereitung (Immer zu Tagesbeginn ausführen)
 
-# ===== WECHSEL ZUM PITOP =====
-# 2. SSH zum PiTop:
+1. Mit USB Stick oder MicroSD den PiTop grundsätzlich booten nach reset
+ (weil er auch von anderen Gruppen genutzt wird)
+
+2. Alle Dateien des Projektordners übertragen (auch .env)
+
+cd /mnt/c/Users/knigh/
+scp -r LF7_project pi@192.168.0.53:~/
+
+3. MIt PiTop verbinden (über Terminal)
+-->IP Adresse ggf in setup_pitops.sh anpassen
+
 ssh pi@192.168.0.53
 
-# ===== AUF DEM PITOP =====
-# 3. Setup:
-cd ~/LF7_project
-python3 -m venv venv
-source venv/bin/activate
-# --> Jetzt siehst du: (venv) pi@pi-top:~/LF7_project $
-
-# 4. Installiere Pakete (IM venv!):
-pip3 install RPi.GPIO python-dotenv requests
-
-# 4. Test:
-python3 config.py
-python3 files..
-_______________________
-
-
-Besser:? (auf Pi Top)
+4. Ordner in PiTop aufrufen
 
 cd ~/LF7_project
-rm -rf venv
+#zum Checken, ob .env auch installiert wurden
+ls -la 
 
-# 2. Installiere zuerst python3-venv (falls nicht vorhanden):
-sudo apt update
-sudo apt install python3-venv python3-full -y
+5. Virtual environment auf PiTop erstellen & aktivieren 
 
-# 3. Erstelle ein neues Virtual Environment:
 python3 -m venv venv
-
-# 4. Aktiviere es RICHTIG:
 source venv/bin/activate
+
+#Ausgabe müsste jett (venv) Pfad sein
+
+6. setup_pitops.sh ausführen
+
+python3 setup_pitops.sh
+
+7. Python Pakete installieren
+
+pip install -r requirements.txt
+
+8. Testen / Ausführen
+
+9. Script mit Passwortübergabe schreiben für die Aufschaltung und Installation (Automatisierung)
