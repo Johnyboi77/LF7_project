@@ -1,7 +1,7 @@
 # hardware/step_counter.py
 """
-Grove Step Counter (SKU: 101020583)
-Verwendet BMA400 3-Achsen Beschleunigungssensor
+Grove Step Counter (BMA400)
+Für PiTop 2 (mobiles System)
 """
 
 import time
@@ -14,53 +14,36 @@ except ImportError:
     print("Installation: curl -sL https://github.com/Seeed-Studio/grove.py/raw/master/install.sh | sudo bash -s -")
 
 class StepCounter:
-    def __init__(self, db_manager):
-        self.db_manager = db_manager
+    def __init__(self):
         self.total_steps = 0
         self.is_monitoring = False
-        self.session_id = None
         
         try:
             # Sensor initialisieren (I2C Adresse 0x14)
             self.sensor = GroveStepCounter()
-            print("✅ Step Counter initialisiert")
-            
-            # Reset Step Counter
             self.sensor.reset()
+            print("✅ Step Counter initialisiert")
             
         except Exception as e:
             print(f"❌ Step Counter Fehler: {e}")
             self.sensor = None
     
-    def start_monitoring(self, interval=5):
+    def start_monitoring(self, interval=1):
         """Startet kontinuierliches Monitoring"""
         if self.sensor is None:
+            print("❌ Sensor nicht verfügbar")
             return
         
         self.is_monitoring = True
         thread = Thread(target=self._monitor_loop, args=(interval,), daemon=True)
         thread.start()
-        print(f"🚶 Step Counter Monitoring gestartet (alle {interval}s)")
+        print(f"🚶 Step Counter läuft (Update alle {interval}s)")
     
     def _monitor_loop(self, interval):
         """Monitoring Loop"""
-        last_steps = 0
-        
         while self.is_monitoring:
             try:
-                # Schritte auslesen
-                current_steps = self.sensor.steps
-                
-                # Nur loggen wenn sich etwas geändert hat
-                if current_steps != last_steps:
-                    self.total_steps = current_steps
-                    print(f"👣 Schritte: {self.total_steps}")
-                    
-                    # In Datenbank speichern
-                    self.db_manager.log_steps(self.total_steps, self.session_id)
-                    
-                    last_steps = current_steps
-                
+                self.total_steps = self.sensor.steps
             except Exception as e:
                 print(f"❌ Step Counter Lesefehler: {e}")
             
@@ -90,3 +73,4 @@ class StepCounter:
     def stop_monitoring(self):
         """Stoppt Monitoring"""
         self.is_monitoring = False
+        print("🛑 Step Counter gestoppt")

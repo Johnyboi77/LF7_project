@@ -1,6 +1,7 @@
 # hardware/Co2_sensor.py
 """
-Grove VOC and eCO2 Gas Sensor mit LED-Warnung
+Grove VOC and eCO2 Gas Sensor (SGP30)
+Mit Supabase-Integration und LED/Buzzer-Steuerung
 """
 
 import time
@@ -13,6 +14,7 @@ try:
     import adafruit_sgp30
 except ImportError:
     print("⚠️  SGP30 Library fehlt!")
+    print("Installation: pip3 install adafruit-circuitpython-sgp30")
 
 class CO2Sensor:
     def __init__(self, buzzer, led, notification_service, db_manager):
@@ -20,14 +22,18 @@ class CO2Sensor:
         self.led = led
         self.notification_service = notification_service
         self.db_manager = db_manager
-        self.session_id = None 
+        
         self.co2_level = 0
         self.tvoc_level = 0
         self.is_monitoring = False
+        self.session_id = None
+        
+        # Alarm-Tracking (1 Alarm-Periode, nicht einzelne Messungen)
+        self.warning_active = False
         self.last_warning_time = 0
-        self.warning_state = None  # None, 'warning', 'critical'
         
         try:
+            # I2C initialisieren
             i2c = busio.I2C(board.SCL, board.SDA, frequency=100000)
             self.sensor = adafruit_sgp30.Adafruit_SGP30(i2c)
             
@@ -41,16 +47,25 @@ class CO2Sensor:
             print(f"❌ CO2 Sensor Fehler: {e}")
             self.sensor = None
     
-    def start_monitoring(self, interval=10):
+    def set_session_id(self, session_id):
+        """Setzt aktuelle Session ID"""
+        self.session_id = session_id
+        print(f"📊 CO2 Sensor: Session {session_id[:8]}...")
+    
+    def start_monitoring(self, interval=None):
         """Startet kontinuierliches Monitoring"""
+        if interval is None:
+            interval = config.CO2_MEASUREMENT_INTERVAL
+        
         self.is_monitoring = True
         thread = Thread(target=self._monitor_loop, args=(interval,), daemon=True)
         thread.start()
-        print(f"🔍 eCO2/VOC Monitoring gestartet (alle {interval}s)")
+        print(f"🔍 CO2 Monitoring gestartet (alle {interval}s)")
     
     def _monitor_loop(self, interval):
         """Monitoring Loop mit Warm-up"""
-        # Warm-up Phase
+        
+        # Warm-up Phase (15 Sekunden)
         print("⏳ Sensor Warm-up (15 Sekunden)...")
         for i in range(15):
             if self.sensor:
@@ -60,16 +75,15 @@ class CO2Sensor:
                     pass
             time.sleep(1)
         
-        print("✅ Warm-up abgeschlossen\n")
+        print("✅ Warm-up abgeschlossen, Messung startet\n")
         
         while self.is_monitoring:
             self.read()
             time.sleep(interval)
     
     def read(self):
-        """Liest eCO2 und TVOC - steuert LED und Buzzer"""
+        """Liest eCO2 und TVOC, prüft Schwellenwerte"""
         if self.sensor is None:
-            self.db_manager.log_co2(self.co2_level, self.session_id)
             return None
         
         try:
@@ -77,12 +91,22 @@ class CO2Sensor:
             self.co2_level = self.sensor.eCO2
             self.tvoc_level = self.sensor.TVOC
             
-            print(f"🌡️  eCO2: {self.co2_level} ppm | TVOC: {self.tvoc_level} ppb")
+            print(f"��️  eCO2: {self.co2_level} ppm | TVOC: {self.tvoc_level} ppb")
             
-            # In Datenbank speichern
-            self.db_manager.log_co2(self.co2_level)
+            # In Supabase speichern
+            if self.session_id:
+                is_alarm = self.co2_level >= config.CO2_CRITICAL_THRESHOLD
+                alarm_type = 'critical' if is_alarm else None
+                
+                self.db_manager.log_co2(
+                    self.session_id,
+                    self.co2_level,
+                    self.tvoc_level,
+                    is_alarm,
+                    alarm_type
+                )
             
-            # Schwellenwerte prüfen + LED/Buzzer steuern
+            # Schwellenwerte prüfen
             self._check_thresholds()
             
             return {
@@ -95,66 +119,78 @@ class CO2Sensor:
             return None
     
     def _check_thresholds(self):
-        """Prüft Schwellenwerte und steuert LED + Buzzer"""
+        """
+        Prüft CO2-Schwellenwerte:
+        - > 800 ppm: LED + Buzzer + Discord (kritisch)
+        - > 600 ppm: LED + Discord (erhöht)
+        - < 600 ppm: Alles aus
+        """
         current_time = time.time()
         
-        # KRITISCH (>800 ppm) - Rote LED + Buzzer
+        # KRITISCH: > 800 ppm
         if self.co2_level >= config.CO2_CRITICAL_THRESHOLD:
             
-            # LED anschalten
+            # LED an
             self.led.on()
             
-            # Status-Änderung oder alle 5 Minuten
-            if self.warning_state != 'critical' or (current_time - self.last_warning_time > 300):
-                print(f"\n🚨 KRITISCHER eCO2-WERT: {self.co2_level} ppm!")
+            # Nur beim ersten Mal dieser Alarm-Periode
+            if not self.warning_active:
+                print(f"\n🚨 KRITISCHER CO2-WERT: {self.co2_level} ppm!")
                 
-                # Buzzer: Kurze Pieptöne
+                # Buzzer: KURZE Pieptöne
                 self.buzzer.beep_short()
                 
-                # Benachrichtigung
-                message = (
-                    f"🚨 **KRITISCHER eCO2-WERT!**\n\n"
-                    f"eCO2: {self.co2_level} ppm\n"
-                    f"TVOC: {self.tvoc_level} ppb\n\n"
-                    f"⚠️ Bitte sofort lüften!"
+                # Discord Benachrichtigung
+                self.notification_service.send_co2_alert(
+                    self.co2_level, 
+                    self.tvoc_level, 
+                    is_critical=True
                 )
-                self.notification_service.send(message, "co2_critical")
-                self.db_manager.log_notification("co2_critical", message, True)
                 
-                self.warning_state = 'critical'
+                # Alarm aktiv setzen
+                self.warning_active = True
+                self.last_warning_time = current_time
+            
+            # Alle 5 Minuten erneut warnen (optional)
+            elif current_time - self.last_warning_time > 300:
+                print(f"⚠️  CO2 weiterhin kritisch: {self.co2_level} ppm")
                 self.last_warning_time = current_time
         
-        # WARNUNG (>600 ppm) - Nur rote LED
+        # ERHÖHT: > 600 ppm (aber < 800)
         elif self.co2_level >= config.CO2_WARNING_THRESHOLD:
             
-            # LED anschalten
+            # LED an
             self.led.on()
             
-            # Status-Änderung oder alle 10 Minuten
-            if self.warning_state != 'warning' or (current_time - self.last_warning_time > 600):
-                print(f"\n⚠️  ERHÖHTER eCO2-WERT: {self.co2_level} ppm")
+            # Nur beim ersten Mal
+            if not self.warning_active:
+                print(f"\n⚠️  ERHÖHTER CO2-WERT: {self.co2_level} ppm")
                 
-                # Benachrichtigung (ohne Buzzer!)
-                message = (
-                    f"⚠️ **Erhöhter eCO2-Wert**\n\n"
-                    f"eCO2: {self.co2_level} ppm\n"
-                    f"TVOC: {self.tvoc_level} ppb\n\n"
-                    f"🔴 Rote LED leuchtet - Bitte bald lüften."
+                # NUR Discord, KEIN Buzzer
+                self.notification_service.send_co2_alert(
+                    self.co2_level, 
+                    self.tvoc_level, 
+                    is_critical=False
                 )
-                self.notification_service.send(message, "co2_warning")
                 
-                self.warning_state = 'warning'
+                # Warnung aktiv
+                self.warning_active = True
                 self.last_warning_time = current_time
         
-        # NORMAL (<600 ppm) - LED aus
+        # NORMAL: < 600 ppm
         else:
-            if self.warning_state is not None:
-                print(f"\n✅ eCO2-Wert wieder normal: {self.co2_level} ppm")
+            # War vorher Warnung aktiv?
+            if self.warning_active:
+                print(f"\n✅ CO2-Wert wieder normal: {self.co2_level} ppm")
+                
+                # LED AUS
                 self.led.off()
-                self.warning_state = None
+                
+                # Warnung beenden
+                self.warning_active = False
     
     def get_current_value(self):
-        """Aktuelle Werte"""
+        """Gibt aktuelle Werte zurück"""
         return {
             'co2': self.co2_level,
             'tvoc': self.tvoc_level
@@ -164,3 +200,4 @@ class CO2Sensor:
         """Stoppt Monitoring"""
         self.is_monitoring = False
         self.led.off()
+        print("🛑 CO2 Monitoring gestoppt")
