@@ -3,13 +3,16 @@
 Rote LED für CO2-Warnung
 """
 
-import RPi.GPIO as GPIO
 import config
+
+red = LED("D7")
 
 class LED:
     def __init__(self, pin=config.LED_RED_PIN):
         self.pin = pin
         self.is_on = False
+        self.pin = "D7"
+        self.pin = LED-red
         
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pin, GPIO.OUT)

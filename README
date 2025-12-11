@@ -43,17 +43,17 @@ Step Counter (SKU: 101020583)
     Misst: Schritte, Aktivität, Neigung
 
 # Baum anzeigen
-cd /mnt/c/Users/knigh/LF7_project && tree -L 6 -I 'node_modules|.next|.git|dist|build'
+cd /mnt/c/Users/knigh/LF7_project && tree -L 3 -I 'node_modules|.next|.git|dist|build'
 
 # Wichtig für sämtliche lokalen Installationen
 
-1. Gehe in dein Projektverzeichnis
+1. In Projektverzeichnis gehen
+
 cd /mnt/c/Users/knigh/LF7_project
 
-2. Aktiviere das Virtual Environment
-source ~/grove_env/bin/activate
+2. Aktiviere das Virtual Environment (wichtig für INstallationen)
 
-# Pi Top Vorbereitung (Immer zu Tagesbeginn ausführen)
+source ~/grove_env/bin/activate
 
 3. Mit USB Stick oder MicroSD den PiTop grundsätzlich booten nach reset
  (weil er auch von anderen Gruppen genutzt wird)
@@ -63,14 +63,14 @@ source ~/grove_env/bin/activate
 ssh pi@192.168.0.53 
 # pi-top
 
-# OPTIONAL
+# Falls Projekt vorhanden (alte Dateien löschen)
 rm -rf ~/LF7_project
 
 # und andere Projekte anderer Gruppen!
 
 4.5 Zweites Terminal öffnen und dort ein Archiv des Projekts, exklusive unnötiger packages erstellen
 
-# LF7_project.tar.gz  --> Ist derzeit bereits erstellt in knigh/
+# Am Besten alte Datei löschen und neue erstellen LF7_project.tar.gz  --> Ist derzeit bereits erstellt in knigh/
 
 cd /mnt/c/Users/knigh
 
@@ -80,18 +80,36 @@ tar -czf LF7_project.tar.gz \
   --exclude='LF7_project/node_modules' \
   LF7_project/
 
+4.7 Altes Archiv löschen
+
+cd /mnt/c/Users/knigh
+rm -f LF7_project.tar.gz
+echo "✅ Altes Archiv gelöscht"
+
 5. Kopie übertragen auf PiTop / ggf vorher Archiv erstellen mit 4.5
 
 scp LF7_project.tar.gz pi@192.168.0.53:~/
 # pi-top
 
+5.5 ggf env extra übertragen
+
+cd /mnt/c/Users/knigh/LF7_project
+
+# Nur die .env-Dateien übertragen
+scp .env.pitop1 .env.pitop2 pi@192.168.0.53:~/LF7_project/
+
 6. Upload Prüfen
 
 ls -la 
 
-7. In richtiges Verzeichnis gehen 
+8. Auf dem Pi entpacken und Archivdatei löschen & In richtiges Verzeichnis gehen
 
+tar -xzf LF7_project.tar.gz
 cd ~/LF7_project
+
+7. Archiv auf PI löschen
+
+rm LF7_project.tar.gz
 
 8. Venv auf PiTop erstellen
 
@@ -109,6 +127,17 @@ pip install -r requirements.txt
 python3 ...
 
 # Troubleshooting 
+
+# ggf zusammen ausführen
 ping 192.168.0.53 
+ssh pi@192.168.0.53
 
 ls -la
+
+
+### Hinzufügen in alle Files wie LED ect - Can hat Tipp gegeben
+
+from pitop import UltrasonicSensor, LED, Buzzer
+from pitop.miniscreen import Miniscreen
+
+-->richtige Bibkliothek verwenden!!
