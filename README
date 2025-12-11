@@ -55,42 +55,60 @@ source ~/grove_env/bin/activate
 
 # Pi Top Vorbereitung (Immer zu Tagesbeginn ausführen)
 
-1. Mit USB Stick oder MicroSD den PiTop grundsätzlich booten nach reset
+3. Mit USB Stick oder MicroSD den PiTop grundsätzlich booten nach reset
  (weil er auch von anderen Gruppen genutzt wird)
 
-2. Alle Dateien des Projektordners übertragen (auch .env)
+4. In einem Terminal mit PiTop4 verbinden & vorhandene Dateien löschen
 
-cd /mnt/c/Users/knigh/
-scp -r LF7_project pi@192.168.0.53:~/
+ssh pi@192.168.0.53 
+# pi-top
 
-3. MIt PiTop verbinden (über Terminal)
--->IP Adresse ggf in setup_pitops.sh anpassen
+# OPTIONAL
+rm -rf ~/LF7_project
 
-ssh pi@192.168.0.53
+# und andere Projekte anderer Gruppen!
 
-4. Ordner in PiTop aufrufen
+4.5 Zweites Terminal öffnen und dort ein Archiv des Projekts, exklusive unnötiger packages erstellen
 
-cd ~/LF7_project
-#zum Checken, ob .env auch installiert wurden
+# LF7_project.tar.gz  --> Ist derzeit bereits erstellt in knigh/
+
+cd /mnt/c/Users/knigh
+
+tar -czf LF7_project.tar.gz \
+  --exclude='LF7_project/.git' \
+  --exclude='LF7_project/venv' \
+  --exclude='LF7_project/node_modules' \
+  LF7_project/
+
+5. Kopie übertragen auf PiTop / ggf vorher Archiv erstellen mit 4.5
+
+scp LF7_project.tar.gz pi@192.168.0.53:~/
+# pi-top
+
+6. Upload Prüfen
+
 ls -la 
 
-5. Virtual environment auf PiTop erstellen & aktivieren 
+7. In richtiges Verzeichnis gehen 
+
+cd ~/LF7_project
+
+8. Venv auf PiTop erstellen
 
 python3 -m venv venv
 source venv/bin/activate
 
 #Ausgabe müsste jett (venv) Pfad sein
 
-6. setup_pitops.sh ausführen
-
-python3 setup_pitops.sh
-
-7. Python Pakete installieren
+9. Python Pakete installieren
 
 pip install -r requirements.txt
 
-8. Testen / Ausführen
+10. Testen / Ausführen
 
 python3 ...
 
-9. Script mit Passwortübergabe schreiben für die Aufschaltung und Installation (Automatisierung)
+# Troubleshooting 
+ping 192.168.0.53 
+
+ls -la
