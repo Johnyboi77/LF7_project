@@ -1,14 +1,15 @@
-# requirements.txt - Learning Assistant (Minimale Version für Mock)
+# requirements.txt - Learning Assistant
 
-# ===== Environment =====
+# ===== Core =====
 python-dotenv>=1.0.0
 
-# ===== I2C (für echte Sensoren später) =====
+# ===== I2C =====
 smbus2>=0.4.2
 
-# ===== Datenbank =====
+# ===== Database =====
 supabase>=2.0.0
 postgrest>=0.10.0
+httpx>=0.24.0
 
 # ===== Discord =====
 requests>=2.31.0

@@ -91,6 +91,12 @@ rm -rf ~/LF7_project
 
 # und andere Projekte anderer Gruppen!
 
+4.3 Altes Archiv löschen (laptop)
+
+cd /mnt/c/Users/knigh
+rm -f LF7_project.tar.gz
+echo "✅ Altes Archiv gelöscht"
+
 4.5 Zweites Terminal öffnen und dort ein Archiv des Projekts, exklusive unnötiger packages erstellen
 
 # Am Besten alte Datei löschen und neue erstellen LF7_project.tar.gz  --> Ist derzeit bereits erstellt in knigh/
@@ -103,23 +109,17 @@ tar -czf LF7_project.tar.gz \
   --exclude='LF7_project/node_modules' \
   LF7_project/
 
-4.7 Altes Archiv löschen
-
-cd /mnt/c/Users/knigh
-rm -f LF7_project.tar.gz
-echo "✅ Altes Archiv gelöscht"
-
 5. Kopie übertragen auf PiTop / ggf vorher Archiv erstellen mit 4.5
 
 scp LF7_project.tar.gz pi@192.168.0.53:~/
 # pi-top
 
-5.5 ggf env extra übertragen
+# 5.5 ggf env extra übertragen
 
-cd /mnt/c/Users/knigh/LF7_project
+# cd /mnt/c/Users/knigh/LF7_project
 
 # Nur die .env-Dateien übertragen
-scp .env.pitop1 .env.pitop2 pi@192.168.0.53:~/LF7_project/
+# scp .env.pitop1 .env.pitop2 pi@192.168.0.53:~/LF7_project/
 
 6. Upload Prüfen
 
@@ -149,6 +149,7 @@ pip install -r requirements.txt
 
 python3 ...
 
+# ggf python3 main_pitop1.py --device=pitop1
 # Troubleshooting 
 
 # ggf zusammen ausführen

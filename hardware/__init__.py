@@ -16,12 +16,17 @@ if IS_PITOP:
         from pitop import Button as PitopButton
         from pitop import LED as PitopLED
         from pitop import Buzzer as PitopBuzzer
-        from pitop.miniscreen import Miniscreen as PitopMiniscreen
         
         Button = PitopButton
         LED = PitopLED
         Buzzer = PitopBuzzer
-        Miniscreen = PitopMiniscreen
+        
+        try:
+            from pitop.miniscreen import Miniscreen as PitopMiniscreen
+            Miniscreen = PitopMiniscreen
+        except ImportError:
+            print("⚠️ Miniscreen nicht verfügbar, nutze Mock")
+            from mock_hardware import Miniscreen
         
     except ImportError as e:
         print(f"⚠️ pitop Import Fehler: {e}")
@@ -36,20 +41,13 @@ if not IS_PITOP:
         LED,
         Buzzer,
         Miniscreen,
+        CO2Sensor,
+        StepCounter
     )
 
-# Custom Sensoren (nur wenn sie existieren)
-try:
-    from hardware.Co2_sensor import CO2Sensor
-except ImportError:
-    print("⚠️ Co2_sensor.py nicht gefunden, nutze Mock")
-    from mock_hardware import CO2Sensor
-
-try:
-    from hardware.step_counter import StepCounter
-except ImportError:
-    print("⚠️ step_counter.py nicht gefunden, nutze Mock")
-    from mock_hardware import StepCounter
+# Wenn pitop Hardware, importiere auch Mock-Sensoren für Custom-Wrapper
+if IS_PITOP:
+    from mock_hardware import CO2Sensor, StepCounter
 
 # Exports
 __all__ = [

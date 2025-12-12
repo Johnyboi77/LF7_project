@@ -1,39 +1,32 @@
-from config import CO2_WARNING_THRESHOLD, CO2_CRITICAL_THRESHOLD
-from . import IS_PITOP
+"""
+CO2 Sensor (SGP30 oder CCS811)
+"""
+
+import config
+from hardware import CO2Sensor as HardwareCO2, IS_PITOP
 
 class CO2Sensor:
     def __init__(self):
-        self.co2_level = 400
-        self.tvoc_level = 0
-        self.is_alarm = False
-        
-        if IS_PITOP:
-            try:
-                import board
-                import busio
-                from adafruit_ccs811 import Adafruit_CCS811
-                
-                i2c = busio.I2C(board.SCL, board.SDA)
-                self.sensor = Adafruit_CCS811(i2c)
-            except:
-                self.sensor = None
-        else:
-            self.sensor = None
+        self.sensor = HardwareCO2()
+        print(f"✅ CO2 Sensor initialisiert ({'REAL' if IS_PITOP else 'MOCK'})")
     
     def read(self):
-        if self.sensor:
-            try:
-                if self.sensor.data_ready:
-                    self.co2_level = self.sensor.eco2
-                    self.tvoc_level = self.sensor.tvoc
-            except:
-                pass
-        return self.co2_level
+        """Liest eCO2 Wert in ppm"""
+        return self.sensor.co2_level
+    
+    @property
+    def co2_level(self):
+        return self.sensor.co2_level
+    
+    @property
+    def tvoc_level(self):
+        return self.sensor.tvoc_level
     
     def get_alarm_status(self):
-        level = self.read()
-        if level >= CO2_CRITICAL_THRESHOLD:
+        """Gibt 'ok', 'warning' oder 'critical' zurück"""
+        level = self.co2_level
+        if level >= config.CO2_CRITICAL_THRESHOLD:
             return "critical"
-        elif level >= CO2_WARNING_THRESHOLD:
+        elif level >= config.CO2_WARNING_THRESHOLD:
             return "warning"
         return "ok"
