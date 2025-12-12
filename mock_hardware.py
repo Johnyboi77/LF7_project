@@ -174,3 +174,32 @@ class StepCounter:
             print(f"👣 +{count} Schritte → Total: {self.steps}")
         else:
             print("⚠️  Step Counter nicht aktiv!")
+
+    # ===== MOCK MINISCREEN =====
+class Miniscreen:
+    """Mock Miniscreen - Simuliert pi-top Display"""
+    
+    def __init__(self):
+        self.current_text = ""
+        print("📺 Mock Miniscreen erstellt")
+    
+    def display_multiline_text(self, text):
+        """Zeigt Text auf Display"""
+        self.current_text = text
+        lines = text.split('\n')
+        
+        print(f"\n📺 ┌{'─'*28}┐")
+        for line in lines:
+            print(f"📺 │ {line:<26} │")
+        print(f"📺 └{'─'*28}┘\n")
+    
+    def clear(self):
+        """Display löschen"""
+        self.current_text = ""
+        print("📺 Display cleared")
+    
+    def show_message(self, message, duration=2):
+        """Zeigt Nachricht für duration Sekunden"""
+        self.display_multiline_text(message)
+        sleep(duration)
+        self.clear()

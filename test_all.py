@@ -19,7 +19,7 @@ from hardware.step_counter import StepCounter
 from services.timer_service import TimerService
 from services.notification_service import NotificationService
 from database.supabase_manager import SupabaseManager
-from notifications.message_templates import MessageTemplates
+from services.discord_message_templates import MessageTemplates
 
 # Farben
 GREEN = '\033[0;32m'

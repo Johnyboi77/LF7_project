@@ -1,11 +1,15 @@
+"""
+Button 2 - Pause Control
+"""
+
 import threading
 from time import time, sleep
-from config import SHORT_PRESS_MAX, DOUBLE_CLICK_INTERVAL
-from . import IS_PITOP, PitopButton
+import config
+from hardware import Button as HardwareButton, IS_PITOP
 
 class Button2:
-    def __init__(self, pin_name):
-        self.pin_name = pin_name
+    def __init__(self, pin_name=None):
+        self.pin_name = pin_name or config.BUTTON2_PORT
         self.press_start = None
         self.last_press_time = 0
         self.short_press_cb = None
@@ -13,12 +17,13 @@ class Button2:
         self.click_count = 0
         self.double_click_timer = None
         
-        if IS_PITOP:
-            self.button = PitopButton(pin_name)
+        self.button = HardwareButton(self.pin_name)
+        
+        if IS_PITOP and hasattr(self.button, 'when_pressed'):
             self.button.when_pressed = self._on_press
             self.button.when_released = self._on_release
-        else:
-            self.button = None
+        
+        print(f"✅ Button2 [{self.pin_name}] initialisiert ({'REAL' if IS_PITOP else 'MOCK'})")
     
     def _on_press(self):
         self.press_start = time()
@@ -30,7 +35,7 @@ class Button2:
         duration = time() - self.press_start
         now = time()
         
-        if duration <= SHORT_PRESS_MAX:
+        if duration <= config.SHORT_PRESS_MAX:
             self.click_count += 1
             
             if self.double_click_timer:
@@ -38,7 +43,7 @@ class Button2:
             
             if self.click_count == 1:
                 self.double_click_timer = threading.Timer(
-                    DOUBLE_CLICK_INTERVAL,
+                    config.DOUBLE_CLICK_INTERVAL,
                     self._single_click_timeout
                 )
                 self.double_click_timer.start()
@@ -65,6 +70,5 @@ class Button2:
         self.double_click_cb = callback
     
     def simulate_short_press(self):
-        self.press_start = time()
-        sleep(0.5)
-        self._on_release()
+        if hasattr(self.button, 'simulate_short_press'):
+            self.button.simulate_short_press()

@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Alle Tests mit neuer Struktur erfolgreich"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Mock muss weg! Tests nur auf Echtumgebung"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"
