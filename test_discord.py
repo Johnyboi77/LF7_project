@@ -7,7 +7,7 @@ Sendet verschiedene Nachrichtentypen
 import sys
 from datetime import datetime
 from services.notification_service import NotificationService
-from services.discord_message_templates import MessageTemplates
+from services.discord_message_templates import MessageTemplates 
 
 def print_header(title):
     print("\n" + "="*60)
@@ -17,6 +17,51 @@ def print_header(title):
 def wait_for_input():
     input("👉 Drücke ENTER zum nächsten Test... ")
     print()
+
+def test_ready_message():
+    """Ready-Message senden"""
+    print_header("TEST 0: READY MESSAGE")
+    
+    notify = NotificationService()
+    
+    print("📨 Sende Ready-Message zu Discord...")
+    print(f"   Webhook: {notify.webhook_url[:50]}...")
+    print(f"   Status: {'✅ Aktiv' if notify.is_enabled else '❌ Inaktiv'}\n")
+    
+    from requests import post
+    try:
+        payload = {
+            "embeds": [{
+                "title": "🤖 Learning Assistant ist bereit!",
+                "description": (
+                    "**i am ready to serve** 🚀\n\n"
+                    "Das System wurde erfolgreich deployed und ist bereit für den Einsatz!\n\n"
+                    "✅ Supabase verbunden\n"
+                    "✅ Discord Webhook aktiv\n"
+                    "✅ Hardware konfiguriert\n"
+                    "✅ Ready to learn! 🎓"
+                ),
+                "color": 3066993,  # Grün
+                "timestamp": datetime.utcnow().isoformat(),
+                "footer": {"text": "Learning Assistant - Deployment Ready"}
+            }]
+        }
+        
+        response = post(
+            notify.webhook_url,
+            json=payload,
+            timeout=5
+        )
+        
+        if response.status_code == 204:
+            print("✅ Ready-Message erfolgreich versendet!")
+        else:
+            print(f"⚠️  Status: {response.status_code}")
+            print(f"Response: {response.text}")
+    except Exception as e:
+        print(f"❌ Fehler: {e}")
+    
+    wait_for_input()
 
 def test_session_start():
     print_header("TEST 1: SESSION START")
@@ -29,7 +74,6 @@ def test_session_start():
     print(f"   Beschreibung: {template['description'][:50]}...")
     print(f"   Farbe: {template['color']}")
     
-    # Senden
     from requests import post
     try:
         payload = {
@@ -225,11 +269,10 @@ def test_co2_critical():
 def test_session_report():
     print_header("TEST 7: SESSION REPORT")
     
-    # Mock-Daten
     stats = {
         'session': {
-            'total_work_time': 5400,  # 90 min
-            'total_pause_time': 1800,  # 30 min
+            'total_work_time': 5400,
+            'total_pause_time': 1800,
             'pause_count': 3
         },
         'co2': {
@@ -283,6 +326,7 @@ if __name__ == "__main__":
     print("Jeder Test sendet eine echte Nachricht zu Discord!\n")
     
     try:
+        test_ready_message()          # Neue Ready-Message zuerst!
         test_session_start()
         test_work_finished()
         test_break_finished()

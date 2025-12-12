@@ -1,7 +1,7 @@
-"""
-Mock Hardware für Entwicklung ohne pi-top
-Simuliert pitop API perfekt
-"""
+
+# Mock Hardware für Entwicklung ohne pi-top
+# Simuliert pitop API perfekt
+
 
 from time import sleep, time
 from threading import Thread, Timer

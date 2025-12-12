@@ -50,6 +50,21 @@ Step Counter (SKU: 101020583)
     Schnittstelle: I2C
     Misst: Schritte, Aktivität, Neigung
 
+# Hardware-Checklist
+PiTop 1 (32 Jonas):
+IP: 192.168.0.53 
+
+ Button 1 → D0
+ Button 2 → D1
+ LED (Rot) → D2
+ Buzzer → D3
+ CO2 Sensor → I2C (should be pre-connected) ✅
+
+PiTop 2:
+IP: 
+
+ Step Counter → I2C (should be pre-connected) ✅
+
 # Baum anzeigen
 cd /mnt/c/Users/knigh/LF7_project && tree -L 3 -I 'node_modules|.next|.git|dist|build'
 
@@ -152,3 +167,9 @@ from pitop import UltrasonicSensor, LED, Buzzer
 from pitop.miniscreen import Miniscreen
 
 -->richtige Bibkliothek verwenden!!
+
+## Fertiges System verwenden
+
+2 ssh terminal windows mit je dem einen pitop
+jeweil das jeweilige main script ausführen
+--> Start both klappt nciht 

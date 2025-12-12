@@ -23,7 +23,8 @@ class BreakStation:
         print("="*60)
         
         # Hardware (NUR Schrittzähler)
-        self.steps = StepCounter()
+        self.steps = StepCounter() 
+        ### I2C Address 0x14 hardcoded - bekommt aber eigentlich automatisch die Daten aus hardware/step_counter.py
         
         # Services
         self.notify = NotificationService()

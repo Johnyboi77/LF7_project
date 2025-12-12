@@ -30,9 +30,10 @@ class LearningSession:
         # Hardware (OHNE Schrittzähler)
         self.button1 = Button("D0")
         self.button2 = Button2("D1")
-        self.led = LED()
-        self.buzzer = Buzzer()
-        self.co2 = CO2Sensor()
+        self.led = LED("D2")
+        self.buzzer = Buzzer("D3")
+        self.co2 = CO2Sensor() 
+        # ggf I2C Address 0x5A hardcoded -> übergabe passiert aber eigentlich automatisch durch hardware/Co2_sensor.py
         
         # Services
         self.timer = TimerService(self._get_db(), NotificationService())

@@ -7,7 +7,7 @@ Liest letzte Session und erstellt Report
 import sys
 from database.supabase_manager import SupabaseManager
 from services.notification_service import NotificationService
-from notifications.message_templates import MessageTemplates
+from services.discord_message_templates import MessageTemplates
 
 def test_report():
     print("\n" + "="*60)
