@@ -1,7 +1,7 @@
 # services/timer_service.py
 """
-Timer Service mit Session-Tracking
-Zählt Arbeits- und Pausenzeiten mit
+Timer Service mit Supabase-Integration
+Verwaltet Arbeits- und Pausenzeiten
 """
 
 import time
@@ -15,10 +15,9 @@ class TimerMode(Enum):
     BREAK = "break"
 
 class TimerService:
-    def __init__(self, buzzer, notification_service, db_manager):
-        self.buzzer = buzzer
-        self.notification_service = notification_service
+    def __init__(self, db_manager, notification_service):
         self.db_manager = db_manager
+        self.notification_service = notification_service
         
         self.mode = TimerMode.IDLE
         self.remaining_time = 0
@@ -27,13 +26,19 @@ class TimerService:
         self.stop_event = Event()
         
         # Session Tracking
-        self.total_work_time = 0      # Gesamt gelernte Zeit
-        self.total_break_time = 0     # Gesamt pausierte Zeit
-        self.work_sessions_count = 0  # Anzahl abgeschlossener Lerneinheiten
-        self.break_sessions_count = 0 # Anzahl abgeschlossener Pausen
+        self.total_work_time = 0
+        self.total_break_time = 0
+        self.work_sessions_count = 0
+        self.break_sessions_count = 0
+        
+        self.session_id = None
+    
+    def set_session_id(self, session_id):
+        """Setzt aktuelle Session ID"""
+        self.session_id = session_id
     
     def start_work_timer(self):
-        """Button 1 kurz: Arbeitszeit starten"""
+        """Startet Arbeitszeit (30 Min)"""
         
         # Laufenden Timer überschreiben
         if self.is_running:
@@ -47,6 +52,10 @@ class TimerService:
         self.is_running = True
         self.stop_event.clear()
         
+        # Timer Status in DB setzen
+        if self.session_id:
+            self.db_manager.update_timer_status(self.session_id, "working")
+        
         print("\n" + "="*50)
         print("🟦 ARBEITSZEIT GESTARTET: 30 Minuten")
         print("="*50)
@@ -56,7 +65,7 @@ class TimerService:
         self.thread.start()
     
     def start_break_timer(self):
-        """Button 2 kurz: Pausenzeit starten"""
+        """Startet Pausenzeit (10 Min)"""
         
         if self.is_running:
             print(f"⚠️  Laufender Timer wird überschrieben!")
@@ -68,6 +77,11 @@ class TimerService:
         self.is_running = True
         self.stop_event.clear()
         
+        # Pause Count erhöhen in DB
+        if self.session_id:
+            self.db_manager.increment_pause_count(self.session_id)
+            self.db_manager.update_timer_status(self.session_id, "break")
+        
         print("\n" + "="*50)
         print("🟩 PAUSENZEIT GESTARTET: 10 Minuten")
         print("="*50)
@@ -76,16 +90,20 @@ class TimerService:
         self.thread.start()
     
     def reset(self):
-        """Button 1/2 lang: Reset Timer"""
+        """Reset Timer (ohne Session zu beenden)"""
         if self.is_running or self.remaining_time > 0:
             print("\n" + "="*50)
-            print("🔄 RESET - Timer zurückgesetzt")
+            print("🔄 TIMER RESET")
             print("="*50 + "\n")
         
         self.is_running = False
         self.remaining_time = 0
         self.mode = TimerMode.IDLE
         self.stop_event.set()
+        
+        # Timer Status zurücksetzen
+        if self.session_id:
+            self.db_manager.update_timer_status(self.session_id, "idle")
     
     def get_session_stats(self):
         """Gibt Session-Statistiken zurück"""
@@ -97,7 +115,7 @@ class TimerService:
         }
     
     def reset_session_stats(self):
-        """Setzt Session-Statistiken zurück (für neue Session)"""
+        """Setzt Statistiken zurück (neue Session)"""
         self.total_work_time = 0
         self.total_break_time = 0
         self.work_sessions_count = 0
@@ -128,7 +146,7 @@ class TimerService:
         
         print()  # Neue Zeile
         
-        # Timer abgelaufen → Session-Zeiten aktualisieren
+        # Timer abgelaufen
         if self.remaining_time == 0 and self.is_running and not self.stop_event.is_set():
             elapsed_time = int(time.time() - start_time)
             
@@ -142,14 +160,18 @@ class TimerService:
             self._timer_finished()
     
     def _timer_finished(self):
-        """Timer abgelaufen"""
+        """Timer abgelaufen - Benachrichtigung senden"""
         
         if self.mode == TimerMode.WORKING:
             print("\n" + "="*50)
             print("⏰ 30 MINUTEN ARBEITSZEIT VORBEI!")
             print("="*50)
             
-            self.buzzer.beep_long()
+            # Timer Status setzen
+            if self.session_id:
+                self.db_manager.update_timer_status(self.session_id, "work_ended")
+            
+            # Discord Benachrichtigung (KEIN Buzzer!)
             self.notification_service.send_work_finished()
         
         elif self.mode == TimerMode.BREAK:
@@ -157,7 +179,11 @@ class TimerService:
             print("⏰ 10 MINUTEN PAUSE VORBEI!")
             print("="*50)
             
-            self.buzzer.beep_long()
+            # Timer Status setzen
+            if self.session_id:
+                self.db_manager.update_timer_status(self.session_id, "break_ended")
+            
+            # Discord Benachrichtigung (KEIN Buzzer!)
             self.notification_service.send_break_finished()
         
         self.mode = TimerMode.IDLE

@@ -1,43 +1,44 @@
- '''
-Commands:
-node-red --version
-
 Projekt
->>Effektiver Lernen:
+>>Effektiver Lernen
 
--Schrittzähler an Person - Fütterung datenbank & Rückmeldung (Iot) über zurückgelegte Strecke, ggf kcal verbrauch etc, hauptsache einfach --> Feedback - mit Telegram oder Discord versenden
--Startknopf (timer von 30min läuft- Arbeitseit)
--Pauseknopf (10min Pauseknopf)
-ggf -Resetknopf (Bei Fehlerhaftem Betätigen)
--Buzzer wenn Timer abläuft /bei Pausenablauf und Beginn Rückmeldung an Handy /Push Naxchricht
--Co2 Messgerät (gibt Ton durch Buzzer wieder alá Lüfte Mal!)
+# Projektablauf
+1. 🎮 Button 1 kurz drücken
+   → 🎓 Work Session startet automatisch
+   → 📱 Discord: "Hey Alicia! Deine Lerneinheit wurde gestartet!"
+   → 🟦 30min Arbeitszeit läuft (timer)
 
-'''
+2. ⏰ Nach 30 Min
+   → 🔊 Langer Piepton mit Buzzer
+   → 📱 Discord: "Deine 30-Minuten Lernphase ist vorbei!"
+   → Schrittzähler startet mit dem Erfassen von Schritten um in der Pause ALLE Schritte aufzunehmen statt ggf nur von 9:57min
 
-# Die Maker Plate hat eigene Pin-Mappings!
-# Schau auf die Beschriftung deines unteren Boards
+3. 🎮 Button 2 kurz drücken
+   → 🟩 10min Pause läuft (timer)
 
-# BEISPIEL (musst du anpassen an deine Beschriftung):
-BUTTON_START = "D0"   # Erster Button links
-BUTTON_PAUSE = "D1"   # Mittlerer Button
-BUTTON_RESET = "D2"   # Dritter Button
+4. ⏰ Nach 10 Min
+   → 📱 Discord Push Nachricht: "Deine Pause ist abgelaufen!"
+   → Neuer Worktimer kann mit erneutem betätigen des buttons gestartet werden
+   → Schrittzähler stoppt erfassung und pusht zu datenbanktable in supabase
 
-BUZZER = "D3"         # Der Buzzer
+5. ... weitere Lern-/Pausezyklen sind unbegrenzt möglich...
 
-LED_WORK = "D4"       # Grüne LED
-LED_PAUSE = "D5"      # Gelbe LED
+6. 🎮 Button 1 für 5+ Sekunden halten
+   → 🛑 Session beendet (jederzeit möglich)
+   → 📊 Report im Terminal + Discord:
+      "Session-Report für Alicia
+       Lernzeit: 90 Min
+       Pausenzeit: 30 Min
+       eCO2 Durchschnitt: 542 ppm
+       Schritte: 1.247
+       Tolle Arbeit! 🎉"
 
-# I2C für CO2 Sensor (standardmäßig)
-I2C_SDA = GPIO 2
-I2C_SCL = GPIO 3
+7. Button 1 und 2 2x drücken
+   → Letzte Eingabe über den Knopf wird beendet/storniert für Versehentliche betätigung
 
+8. Zusätzlich überwacht ein CO2 Sensor den Sauerstoffgehalt und lässt bei unterschreitung der 1. grenze eine rote led leuchten / bei unterschreitung der zweiten Grenzen -> Ton über button (doppel biep)
+ und Push NAchricht sinngemäß: Lüfte mal!
 
-# Schritt 3: CO2-Sensor anschließen
-Am unteren Board sollte I2C sein (meist beschriftet mit SDA/SCL)
-
-# Baum anzeigen
-cd /mnt/c/Users/knigh/LF7_project && tree -L 6 -I 'node_modules|.next|.git|dist|build'
-
+# Vermutlich werden diese besonderen Sensoren verwendet
 VOC and eCO2 Gas Sensor (SKU: 101020512)
     Chip: Wahrscheinlich SGP30 oder CCS811
     Schnittstelle: I2C
@@ -49,41 +50,126 @@ Step Counter (SKU: 101020583)
     Schnittstelle: I2C
     Misst: Schritte, Aktivität, Neigung
 
+# Hardware-Checklist
+PiTop 1 (32 Jonas):
+IP: 192.168.0.53 
 
-Wichtig für Installationen
+ Button 1 → D0
+ Button 2 → D1
+ LED (Rot) → D2
+ Buzzer → D3
+ CO2 Sensor → I2C (should be pre-connected) ✅
 
-# 1. Gehe in dein Projektverzeichnis
+PiTop 2:
+IP: 
+
+ Step Counter → I2C (should be pre-connected) ✅
+
+# Baum anzeigen
+cd /mnt/c/Users/knigh/LF7_project && tree -L 3 -I 'node_modules|.next|.git|dist|build'
+
+# Wichtig für sämtliche lokalen Installationen
+
+1. In Projektverzeichnis gehen
+
 cd /mnt/c/Users/knigh/LF7_project
 
-# 2. Aktiviere das Virtual Environment
+2. Aktiviere das Virtual Environment (wichtig für INstallationen)
+
 source ~/grove_env/bin/activate
 
+3. Mit USB Stick oder MicroSD den PiTop grundsätzlich booten nach reset
+ (weil er auch von anderen Gruppen genutzt wird)
 
-    Ablauf
-1. 🎮 Button 1 kurz drücken
-   → 🎓 Session startet automatisch
-   → 📱 Discord: "Hey Alicia! Deine Lerneinheit wurde gestartet!"
-   → 🟦 30min Arbeitszeit läuft
+4. In einem Terminal mit PiTop4 verbinden & vorhandene Dateien löschen
 
-2. ⏰ Nach 30 Min
-   → 🔊 Langer Piepton
-   → 📱 Discord: "Deine 30-Minuten Lernphase ist vorbei!"
+ssh pi@192.168.0.53 
+# pi-top
 
-3. 🎮 Button 2 kurz drücken
-   → 🟩 10min Pause läuft
+# Falls Projekt vorhanden (alte Dateien löschen)
+rm -rf ~/LF7_project
 
-4. ⏰ Nach 10 Min
-   → 🔊 Langer Piepton
-   → 📱 Discord: "Deine Pause ist abgelaufen!"
+# und andere Projekte anderer Gruppen!
 
-5. ... weitere Lern-/Pausezyklen ...
+4.5 Zweites Terminal öffnen und dort ein Archiv des Projekts, exklusive unnötiger packages erstellen
 
-6. 🎮 Button 1 für 5+ Sekunden halten
-   → 🛑 Session beendet
-   → 📊 Report im Terminal + Discord:
-      "Session-Report für Alicia
-       Lernzeit: 90 Min
-       Pausenzeit: 30 Min
-       eCO2 Durchschnitt: 542 ppm
-       Schritte: 1.247
-       Tolle Arbeit! 🎉"
+# Am Besten alte Datei löschen und neue erstellen LF7_project.tar.gz  --> Ist derzeit bereits erstellt in knigh/
+
+cd /mnt/c/Users/knigh
+
+tar -czf LF7_project.tar.gz \
+  --exclude='LF7_project/.git' \
+  --exclude='LF7_project/venv' \
+  --exclude='LF7_project/node_modules' \
+  LF7_project/
+
+4.7 Altes Archiv löschen
+
+cd /mnt/c/Users/knigh
+rm -f LF7_project.tar.gz
+echo "✅ Altes Archiv gelöscht"
+
+5. Kopie übertragen auf PiTop / ggf vorher Archiv erstellen mit 4.5
+
+scp LF7_project.tar.gz pi@192.168.0.53:~/
+# pi-top
+
+5.5 ggf env extra übertragen
+
+cd /mnt/c/Users/knigh/LF7_project
+
+# Nur die .env-Dateien übertragen
+scp .env.pitop1 .env.pitop2 pi@192.168.0.53:~/LF7_project/
+
+6. Upload Prüfen
+
+ls -la 
+
+8. Auf dem Pi entpacken und Archivdatei löschen & In richtiges Verzeichnis gehen
+
+tar -xzf LF7_project.tar.gz
+cd ~/LF7_project
+
+7. Archiv auf PI löschen
+
+rm LF7_project.tar.gz
+
+8. Venv auf PiTop erstellen
+
+python3 -m venv venv
+source venv/bin/activate
+
+#Ausgabe müsste jett (venv) Pfad sein
+
+9. Python Pakete installieren
+
+pip install -r requirements.txt
+
+10. Testen / Ausführen
+
+python3 ...
+
+# Troubleshooting 
+
+# ggf zusammen ausführen
+ping 192.168.0.53 
+ssh pi@192.168.0.53
+
+ls -la
+
+exit 
+# um Pitop sicher zu verlassen, ansonsten muss er neugestartet werden weil Port 22 belegt ist
+
+
+### Hinzufügen in alle Files wie LED ect - Can hat Tipp gegeben
+
+from pitop import UltrasonicSensor, LED, Buzzer
+from pitop.miniscreen import Miniscreen
+
+-->richtige Bibkliothek verwenden!!
+
+## Fertiges System verwenden
+
+2 ssh terminal windows mit je dem einen pitop
+jeweil das jeweilige main script ausführen
+--> Start both klappt nciht 

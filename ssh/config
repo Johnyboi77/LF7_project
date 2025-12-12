@@ -1,6 +1,0 @@
-# LF7 Project
-Host github-lf7
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/lf7_project
-    IdentitiesOnly yes
