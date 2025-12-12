@@ -9,176 +9,168 @@ import random
 
 # ===== MOCK BUTTON =====
 class Button:
+    """Mock Button - Simuliert Button-Verhalten"""
+    
     def __init__(self, port):
         self.port = port
-        self._short_press_callback = None
-        self._long_press_callback = None
-        self._double_click_callback = None
-        print(f"🔌 Mock Button [{port}] erstellt")
+        self.press_callbacks = []
+        self.release_callbacks = []
+        print(f"🎮 Mock Button [{port}] erstellt")
     
-    def on_short_press(self, callback):
-        self._short_press_callback = callback
-        print(f"  → Short Press Callback registriert")
+    def when_pressed(self, callback):
+        """Registriert Press-Callback"""
+        self.press_callbacks.append(callback)
     
-    def on_long_press(self, callback):
-        self._long_press_callback = callback
-        print(f"  → Long Press Callback registriert")
+    def when_released(self, callback):
+        """Registriert Release-Callback"""
+        self.release_callbacks.append(callback)
     
-    def on_double_click(self, callback):
-        self._double_click_callback = callback
-        print(f"  → Double Click Callback registriert")
+    def simulate_press(self, duration=0.5):
+        """Simuliert Button-Druck"""
+        print(f"👇 [{self.port}] PRESS")
+        for cb in self.press_callbacks:
+            cb()
     
-    # Test-Helfer
-    def simulate_short_press(self):
-        print(f"🔘 [{self.port}] SHORT PRESS simuliert")
-        if self._short_press_callback:
-            self._short_press_callback()
-    
-    def simulate_long_press(self):
-        print(f"🔘 [{self.port}] LONG PRESS simuliert")
-        if self._long_press_callback:
-            self._long_press_callback()
-    
-    def simulate_double_click(self):
-        print(f"🔘 [{self.port}] DOUBLE CLICK simuliert")
-        if self._double_click_callback:
-            self._double_click_callback()
+    def simulate_release(self):
+        """Simuliert Button-Release"""
+        print(f"👆 [{self.port}] RELEASE")
+        for cb in self.release_callbacks:
+            cb()
 
 
-# ===== MOCK LED =====
 class LED:
-    def __init__(self, port):
+    """Mock LED - Simuliert LED-Verhalten"""
+    
+    def __init__(self, port="D2"):
         self.port = port
-        self.state = False
+        self.is_on = False
+        self.blinking = False
         print(f"💡 Mock LED [{port}] erstellt")
     
     def on(self):
-        self.state = True
+        """LED anschalten"""
+        self.is_on = True
+        self.blinking = False
         print(f"💡 [{self.port}] ON")
     
     def off(self):
-        self.state = False
+        """LED ausschalten"""
+        self.is_on = False
+        self.blinking = False
         print(f"💡 [{self.port}] OFF")
     
-    def blink(self, on_time=0.5, off_time=0.5, n=None):
-        print(f"💡 [{self.port}] BLINK (on={on_time}s, off={off_time}s, n={n})")
-        self.state = "blinking"
+    def blink(self, on_time=0.5, off_time=0.5):
+        """LED blinken"""
+        self.blinking = True
+        print(f"💡 [{self.port}] BLINK (on={on_time}s, off={off_time}s)")
 
 
-# ===== MOCK BUZZER =====
 class Buzzer:
-    def __init__(self, port):
+    """Mock Buzzer - Simuliert Buzzer-Verhalten"""
+    
+    def __init__(self, port="D3"):
         self.port = port
-        self.is_on = False
+        self.is_active = False
         print(f"🔊 Mock Buzzer [{port}] erstellt")
     
     def on(self):
-        self.is_on = True
+        """Buzzer anschalten"""
+        self.is_active = True
         print(f"🔊 [{self.port}] ON")
     
     def off(self):
-        self.is_on = False
+        """Buzzer ausschalten"""
+        self.is_active = False
         print(f"🔊 [{self.port}] OFF")
     
     def beep(self, duration=0.2):
+        """Kurzer Beep"""
         print(f"🔊 [{self.port}] BEEP ({duration}s)")
-        sleep(duration)
     
     def double_beep(self):
+        """Doppelbeep"""
         print(f"🔊 [{self.port}] DOUBLE BEEP")
         self.beep(0.1)
-        sleep(0.1)
         self.beep(0.1)
     
-    def long_beep(self):
-        print(f"🔊 [{self.port}] LONG BEEP")
-        self.beep(1.0)
-
-
-# ===== MOCK MINISCREEN =====
-class Miniscreen:
-    def __init__(self):
-        print(f"📺 Mock Miniscreen erstellt")
-        self.current_text = ""
+    def long_beep(self, duration=2.0):
+        """Langer Beep - KORRIGIERT"""
+        print(f"🔊 [{self.port}] LONG BEEP ({duration}s)")
     
-    def display_multiline_text(self, text):
-        self.current_text = text
-        print(f"📺 Screen Update:\n{text}\n{'─'*30}")
-    
-    def clear(self):
-        self.current_text = ""
-        print(f"📺 Screen cleared")
+    def co2_alarm(self):
+        """CO2 Alarm-Pattern"""
+        print(f"🚨 [{self.port}] CO2 ALARM (Beep-Beep-Beep...)")
 
 
-# ===== MOCK CO2 SENSOR =====
 class CO2Sensor:
+    """Mock CO2 Sensor"""
+    
     def __init__(self):
-        self.co2 = 450
-        self.tvoc = 50
-        print("🌡️ Mock CO2 Sensor (SGP30) erstellt")
+        self.co2_level = 450  # Normal
+        self.tvoc_level = 50
+        print("🌡️  Mock CO2 Sensor erstellt")
     
     def read(self):
-        # Simuliere realistische Werte
-        self.co2 += random.randint(-30, 50)
-        self.co2 = max(400, min(2000, self.co2))
-        self.tvoc = random.randint(0, 100)
-        return self.co2, self.tvoc
-    
-    @property
-    def co2_level(self):
-        self.read()
-        return self.co2
-    
-    @property
-    def tvoc_level(self):
-        return self.tvoc
+        """Liest CO2-Wert"""
+        return self.co2_level
     
     def get_alarm_status(self):
-        if self.co2 >= 1500:
+        """Gibt Alarm-Status zurück"""
+        if self.co2_level >= 800:
             return "critical"
-        elif self.co2 >= 1000:
+        elif self.co2_level >= 600:
             return "warning"
         return "ok"
+    
+    def simulate_high_co2(self):
+        """Simuliert hohe CO2-Werte"""
+        self.co2_level = 850
+        print("🌡️  [CO2] Simuliere CRITICAL: 850 ppm")
+    
+    def simulate_warning_co2(self):
+        """Simuliert Warn-CO2-Werte"""
+        self.co2_level = 650
+        print("🌡️  [CO2] Simuliere WARNING: 650 ppm")
+    
+    def reset_co2(self):
+        """Reset zu Normalwert"""
+        self.co2_level = 450
+        print("🌡️  [CO2] RESET zu Normal: 450 ppm")
 
 
-# ===== MOCK STEP COUNTER =====
 class StepCounter:
+    """Mock Step Counter"""
+    
     def __init__(self):
         self.steps = 0
         self.is_counting = False
-        self._step_thread = None
-        print("🚶 Mock Step Counter (BMA400) erstellt")
+        print("👣 Mock Step Counter erstellt")
     
-    def start_counting(self):
-        self.steps = 0
+    def start(self):
+        """Schrittzähler starten"""
         self.is_counting = True
-        print("🚶 Schrittzähler GESTARTET (Mock)")
-        
-        # Simuliere Schritte im Hintergrund
-        def simulate():
-            while self.is_counting:
-                self.steps += random.randint(0, 3)
-                sleep(1)
-        
-        self._step_thread = Thread(target=simulate, daemon=True)
-        self._step_thread.start()
+        self.steps = 0
+        print("👣 Step Counter STARTED")
     
-    def stop_counting(self):
+    def stop(self):
+        """Schrittzähler stoppen"""
         self.is_counting = False
-        print(f"🚶 Schrittzähler GESTOPPT: {self.steps} Schritte (Mock)")
+        print(f"👣 Step Counter STOPPED: {self.steps} Schritte")
         return self.steps
     
-    def read_steps(self):
+    def read(self):
+        """Aktuelle Schritte lesen"""
         return self.steps
     
-    @property
-    def current_steps(self):
-        return self.steps
+    def reset(self):
+        """Reset"""
+        self.steps = 0
+        print("👣 Step Counter RESET")
     
-    def calculate_distance(self, step_length_cm=70):
-        distance = (self.steps * step_length_cm) / 100
-        return round(distance, 2)
-    
-    def calculate_calories(self, weight_kg=60):
-        calories = self.steps * 0.04 * (weight_kg / 70)
-        return round(calories, 1)
+    def simulate_steps(self, count):
+        """Simuliert Schritte"""
+        if self.is_counting:
+            self.steps += count
+            print(f"👣 +{count} Schritte → Total: {self.steps}")
+        else:
+            print("⚠️  Step Counter nicht aktiv!")

@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Neue Bibliothek eingebunden"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Neue Bibliothek eingebunden - Lokale Tests erfolgreich"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"
