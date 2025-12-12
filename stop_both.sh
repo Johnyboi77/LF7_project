@@ -1,59 +1,109 @@
 #!/bin/bash
-# stop_both.sh - Stoppt beide PiTop Systeme
+# stop_both.sh - Stoppt beide PiTop Systeme sauber
 
-echo "════════════════════════════════════════════════════════"
-echo "🛑 STOPPING LEARNING ASSISTANT"
-echo "════════════════════════════════════════════════════════"
+set -e
+
+echo ""
+echo "════════════════════════════════════════════════════════════════"
+echo "🛑 LEARNING ASSISTANT - SHUTDOWN SEQUENCE"
+echo "════════════════════════════════════════════════════════════════"
 echo ""
 
-# ===== KONFIGURATION =====
-PITOP1_IP="192.168.1.100"  # ← ANPASSEN!
-PITOP2_IP="192.168.1.101"  # ← ANPASSEN!
-PITOP_USER="pi"
+# Konfiguration
+PITOP1_IP="${PITOP1_IP:-192.168.0.53}"
+PITOP2_IP="${PITOP2_IP:-}"
+PITOP_USER="${PITOP_USER:-pi}"
 PROJECT_DIR="/home/pi/LF7_project"
 
-# ===== PiTop 1 stoppen =====
-echo "🛑 Stoppe PiTop 1..."
+# Farbcodes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-ssh $PITOP_USER@$PITOP1_IP << 'ENDSSH1'
-cd ~/LF7_project
+# ===== FUNKTIONEN =====
 
-if [ -f pitop1.pid ]; then
-    PID=$(cat pitop1.pid)
-    if kill $PID 2>/dev/null; then
-        echo "   ✅ PiTop 1 gestoppt (PID: $PID)"
-    else
-        echo "   ⚠️  Prozess nicht gefunden, versuche pkill..."
-        pkill -f main_pitop1.py && echo "   ✅ PiTop 1 gestoppt" || echo "   ℹ️  Nichts zu stoppen"
-    fi
-    rm -f pitop1.pid
+stop_pitop1() {
+    echo -e "${BLUE}⏹️  Stoppe PiTop 1...${NC}"
+    
+    ssh "$PITOP_USER@$PITOP1_IP" << ENDSSH1
+cd $PROJECT_DIR
+
+# Prozess beenden
+pkill -f "python3 main_pitop1.py" || true
+
+# Warten
+sleep 1
+
+# Bestätigen
+if ! pgrep -f "python3 main_pitop1.py" > /dev/null; then
+    echo "OK"
 else
-    pkill -f main_pitop1.py && echo "   ✅ PiTop 1 gestoppt" || echo "   ℹ️  Nichts zu stoppen"
+    # Force kill bei Bedarf
+    pkill -9 -f "python3 main_pitop1.py" || true
+    echo "FORCE"
 fi
 ENDSSH1
-
-# ===== PiTop 2 stoppen =====
-echo "🛑 Stoppe PiTop 2..."
-
-ssh $PITOP_USER@$PITOP2_IP << 'ENDSSH2'
-cd ~/LF7_project
-
-if [ -f pitop2.pid ]; then
-    PID=$(cat pitop2.pid)
-    if kill $PID 2>/dev/null; then
-        echo "   ✅ PiTop 2 gestoppt (PID: $PID)"
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ PiTop 1 gestoppt${NC}"
+        return 0
     else
-        echo "   ⚠️  Prozess nicht gefunden, versuche pkill..."
-        pkill -f main_pitop2.py && echo "   ✅ PiTop 2 gestoppt" || echo "   ℹ️  Nichts zu stoppen"
+        echo -e "${RED}⚠️  Fehler beim Stoppen${NC}"
+        return 1
     fi
-    rm -f pitop2.pid
+}
+
+stop_pitop2() {
+    echo -e "${BLUE}⏹️  Stoppe PiTop 2...${NC}"
+    
+    ssh "$PITOP_USER@$PITOP2_IP" << ENDSSH2
+cd $PROJECT_DIR
+
+# Prozess beenden
+pkill -f "python3 main_pitop2.py" || true
+
+# Warten
+sleep 1
+
+# Bestätigen
+if ! pgrep -f "python3 main_pitop2.py" > /dev/null; then
+    echo "OK"
 else
-    pkill -f main_pitop2.py && echo "   ✅ PiTop 2 gestoppt" || echo "   ℹ️  Nichts zu stoppen"
+    pkill -9 -f "python3 main_pitop2.py" || true
+    echo "FORCE"
 fi
 ENDSSH2
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ PiTop 2 gestoppt${NC}"
+        return 0
+    else
+        echo -e "${RED}⚠️  Fehler beim Stoppen${NC}"
+        return 1
+    fi
+}
+
+# ===== MAIN =====
+
+echo "🔧 KONFIGURATION:"
+echo "   PiTop 1: $PITOP_USER@$PITOP1_IP"
+echo "   PiTop 2: $PITOP_USER@$PITOP2_IP"
+echo ""
+
+stop_pitop1
+sleep 1
+
+stop_pitop2
 
 echo ""
-echo "════════════════════════════════════════════════════════"
-echo "✅ BEIDE SYSTEME GESTOPPT!"
-echo "════════════════════════════════════════════════════════"
+echo "════════════════════════════════════════════════════════════════"
+echo -e "${GREEN}✅ ALLE SYSTEME GESTOPPT${NC}"
+echo "════════════════════════════════════════════════════════════════"
+echo ""
+
+echo "📊 Status prüfen:"
+echo "   $ ssh $PITOP_USER@$PITOP1_IP 'ps aux | grep main_pitop'"
+echo "   $ ssh $PITOP_USER@$PITOP2_IP 'ps aux | grep main_pitop'"
 echo ""

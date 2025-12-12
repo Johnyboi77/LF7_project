@@ -1,115 +1,96 @@
-# hardware/button1.py
-"""
-Button 1 - Arbeitszeit + Session Management
-- Kurz (< 2s):     Start Arbeitszeit
-- Doppelt (kurz):  Reset Timer + Report
-- Extra-Lang (5+s): Session beenden + Report
-"""
+import threading
+from time import time, sleep
+from config import SHORT_PRESS_MAX, END_SESSION_PRESS, DOUBLE_CLICK_INTERVAL
+from . import IS_PITOP, PitopButton
 
-import RPi.GPIO as GPIO
-import time
-import config
-
-class Button1:
-    def __init__(self, pin=config.BUTTON1_PIN, 
-                 short_press_callback=None, 
-                 double_click_callback=None,
-                 long_press_callback=None):
-        self.pin = pin
-        self.short_press_callback = short_press_callback
-        self.double_click_callback = double_click_callback
-        self.long_press_callback = long_press_callback
-        
-        # Tracking
-        self.press_start_time = None
+class Button:
+    def __init__(self, pin_name):
+        self.pin_name = pin_name
+        self.press_start = None
         self.last_press_time = 0
+        self.last_release_time = 0
+        self.short_press_cb = None
+        self.long_press_cb = None
+        self.double_click_cb = None
         self.click_count = 0
-        self.is_pressed = False
+        self.double_click_timer = None
         
-        # GPIO Setup
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        
-        # Event Detection
-        GPIO.add_event_detect(
-            self.pin, 
-            GPIO.BOTH, 
-            callback=self._handle_event, 
-            bouncetime=50
-        )
-        
-        print(f"✅ Button 1 initialisiert (GPIO {self.pin})")
-        print("   < 2s: Arbeitszeit | 2x: Reset | 5+s: Session Ende")
-    
-    def _handle_event(self, channel):
-        """Erkennt Kurz, Doppel, Extra-Lang"""
-        
-        if GPIO.input(self.pin) == GPIO.LOW:
-            # Button gedrückt
-            self.press_start_time = time.time()
-            self.is_pressed = True
-            
+        if IS_PITOP:
+            self.button = PitopButton(pin_name)
+            self.button.when_pressed = self._on_press
+            self.button.when_released = self._on_release
         else:
-            # Button losgelassen
-            if self.press_start_time is not None and self.is_pressed:
-                press_duration = time.time() - self.press_start_time
-                current_time = time.time()
-                
-                # Extra-Lang: 5+ Sekunden → Session beenden
-                if press_duration >= config.END_SESSION_PRESS:
-                    print(f"🛑 Button 1 EXTRA-LANG ({press_duration:.1f}s) → SESSION BEENDEN")
-                    self.click_count = 0  # Reset Click-Counter
-                    
-                    if self.long_press_callback:
-                        self.long_press_callback()
-                
-                # Kurz: < 2 Sekunden
-                elif press_duration < config.SHORT_PRESS_MAX:
-                    # Doppelklick-Erkennung
-                    time_since_last = current_time - self.last_press_time
-                    
-                    if time_since_last < config.DOUBLE_CLICK_INTERVAL:
-                        # DOPPELKLICK!
-                        self.click_count += 1
-                        
-                        if self.click_count >= 2:
-                            print(f"🔴 Button 1 DOPPELKLICK → RESET + REPORT")
-                            self.click_count = 0
-                            
-                            if self.double_click_callback:
-                                self.double_click_callback()
-                    else:
-                        # Erster Klick - warten auf zweiten
-                        self.click_count = 1
-                        self.last_press_time = current_time
-                        
-                        # Timer für verzögerte Ausführung (falls kein zweiter Klick kommt)
-                        import threading
-                        threading.Timer(
-                            config.DOUBLE_CLICK_INTERVAL + 0.1, 
-                            self._check_single_click
-                        ).start()
-                
-                # 2-5 Sekunden: Ignorieren (zwischen Kurz und Extra-Lang)
-                else:
-                    print(f"⚠️  Button 1: {press_duration:.1f}s (zu lang für Kurz, zu kurz für Session-Ende)")
-                
-                self.press_start_time = None
-                self.is_pressed = False
+            self.button = None
     
-    def _check_single_click(self):
-        """Prüft ob es ein einzelner Klick war (kein Doppelklick)"""
-        if self.click_count == 1:
-            print(f"🟦 Button 1 KURZ → ARBEITSZEIT")
+    def _on_press(self):
+        self.press_start = time()
+    
+    def _on_release(self):
+        if not self.press_start:
+            return
+        
+        duration = time() - self.press_start
+        now = time()
+        
+        # Long Press (5+ Sekunden)
+        if duration >= END_SESSION_PRESS:
             self.click_count = 0
+            if self.double_click_timer:
+                self.double_click_timer.cancel()
+            if self.long_press_cb:
+                self.long_press_cb()
+            self.last_release_time = now
+        
+        # Short Press
+        elif duration <= SHORT_PRESS_MAX:
+            self.click_count += 1
             
-            if self.short_press_callback:
-                self.short_press_callback()
+            # Cancel old timer
+            if self.double_click_timer:
+                self.double_click_timer.cancel()
+            
+            # Check für Doppelklick
+            if self.click_count == 1:
+                # Warte auf 2. Klick
+                self.double_click_timer = threading.Timer(
+                    DOUBLE_CLICK_INTERVAL,
+                    self._single_click_timeout
+                )
+                self.double_click_timer.start()
+            
+            elif self.click_count == 2:
+                self.double_click_timer.cancel()
+                if self.double_click_cb:
+                    self.double_click_cb()
+                self.click_count = 0
+            
+            self.last_release_time = now
+        
+        self.press_start = None
     
-    def cleanup(self):
-        """Cleanup GPIO"""
-        try:
-            GPIO.remove_event_detect(self.pin)
-            GPIO.cleanup(self.pin)
-        except:
-            pass
+    def _single_click_timeout(self):
+        """Timeout für Single-Click"""
+        if self.click_count == 1 and self.short_press_cb:
+            self.short_press_cb()
+        self.click_count = 0
+    
+    def on_short_press(self, callback):
+        self.short_press_cb = callback
+    
+    def on_long_press(self, callback):
+        self.long_press_cb = callback
+    
+    def on_double_click(self, callback):
+        self.double_click_cb = callback
+    
+    def simulate_short_press(self):
+        """Für Testing"""
+        self.press_start = time()
+        sleep(0.5)
+        self._on_release()
+    
+    def simulate_long_press(self):
+        """Für Testing"""
+        self.press_start = time()
+        sleep(5.1)
+        self._on_release()

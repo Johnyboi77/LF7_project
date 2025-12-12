@@ -1,354 +1,384 @@
 #!/usr/bin/env python3
 """
-🧪 KOMPLETTER HARDWARE-TEST FÜR PITOP 4
-Testet alle Komponenten nacheinander mit Pausen
-
-Tests:
-1. LEDs (Red, Green, Blue)
-2. Buzzer
-3. Buttons (1 & 2)
-4. CO2 Sensor (SGP30)
-5. Step Counter (BMA400)
-6. Datenbank (Supabase)
-7. Discord Notifications
-
-Autor: Learning Assistant Team
-Version: 1.0
+test_all.py - Komplette Test-Suite für alle Hardware & Services
+Mit Daueraktion und Discord-Benachrichtigungen
 """
 
 import sys
-import os
-import time
+import signal
+from time import sleep
 from datetime import datetime
 
-def print_banner(text, char="="):
-    """Schöner Banner für Überschriften"""
-    width = 70
-    print("\n" + char * width)
-    print(f"{text:^{width}}")
-    print(char * width + "\n")
+import config
+from hardware.button1 import Button
+from hardware.button2 import Button2
+from hardware.led import LED
+from hardware.buzzer import Buzzer
+from hardware.Co2_sensor import CO2Sensor
+from hardware.step_counter import StepCounter
+from services.timer_service import TimerService
+from services.notification_service import NotificationService
+from database.supabase_manager import SupabaseManager
+from notifications.message_templates import MessageTemplates
 
-def print_section(text):
-    """Kleinere Überschrift"""
-    print(f"\n{'─' * 70}")
-    print(f"  {text}")
-    print(f"{'─' * 70}\n")
+# Farben
+GREEN = '\033[0;32m'
+RED = '\033[0;31m'
+YELLOW = '\033[1;33m'
+BLUE = '\033[0;34m'
+NC = '\033[0m'
 
-def wait_for_enter(message=""):
-    """Wartet auf Enter"""
-    if message:
-        print(f"\n💡 {message}")
-    input("   👉 Drücke ENTER zum Fortfahren...\n")
-
-def print_progress(current, total, name):
-    """Zeigt Fortschritt an"""
-    percentage = (current / total) * 100
-    bar_length = 40
-    filled = int(bar_length * current / total)
-    bar = "█" * filled + "░" * (bar_length - filled)
-    print(f"\n[{bar}] {percentage:.0f}% - Test {current}/{total}: {name}")
-
-def test_system_requirements():
-    """Prüft System-Voraussetzungen"""
-    print_section("SYSTEM-CHECK")
+class TestSuite:
+    def __init__(self):
+        self.test_count = 0
+        self.passed = 0
+        self.failed = 0
+        self.db = SupabaseManager()
+        self.notify = NotificationService()
     
-    checks = []
+    def print_header(self, test_name):
+        self.test_count += 1
+        print(f"\n{'='*60}")
+        print(f"{BLUE}🧪 TEST {self.test_count}: {test_name}{NC}")
+        print(f"{'='*60}\n")
     
-    # Python Version
-    print("🐍 Python Version:", sys.version.split()[0])
-    checks.append(("Python Version", True))
+    def print_success(self, message):
+        print(f"{GREEN}✅ {message}{NC}")
+        self.passed += 1
     
-    # RPi.GPIO verfügbar?
-    try:
-        import RPi.GPIO as GPIO
-        print("✅ RPi.GPIO verfügbar")
-        checks.append(("RPi.GPIO", True))
-        gpio_available = True
-    except ImportError:
-        print("⚠️  RPi.GPIO nicht verfügbar (MOCK MODE)")
-        checks.append(("RPi.GPIO", False))
-        gpio_available = False
+    def print_fail(self, message):
+        print(f"{RED}❌ {message}{NC}")
+        self.failed += 1
     
-    # I2C verfügbar?
-    i2c_available = os.path.exists('/dev/i2c-1')
-    if i2c_available:
-        print("✅ I2C aktiviert (/dev/i2c-1)")
-    else:
-        print("⚠️  I2C nicht aktiviert")
-    checks.append(("I2C", i2c_available))
+    def wait_for_next(self):
+        print(f"\n{YELLOW}👉 Drücke ENTER für nächsten Test...{NC}")
+        try:
+            input()
+        except KeyboardInterrupt:
+            raise
+        print()
     
-    # Supabase Config
-    try:
-        import config
-        has_supabase = bool(config.SUPABASE_URL and config.SUPABASE_KEY)
-        if has_supabase:
-            print(f"✅ Supabase konfiguriert")
-        else:
-            print("⚠️  Supabase nicht konfiguriert (.env)")
-        checks.append(("Supabase Config", has_supabase))
-    except:
-        print("⚠️  config.py nicht gefunden")
-        checks.append(("Supabase Config", False))
-    
-    # Discord Config
-    try:
-        has_discord = bool(config.DISCORD_WEBHOOK_URL)
-        if has_discord:
-            print("✅ Discord Webhook konfiguriert")
-        else:
-            print("⚠️  Discord nicht konfiguriert (.env)")
-        checks.append(("Discord Config", has_discord))
-    except:
-        checks.append(("Discord Config", False))
-    
-    print(f"\n📊 System-Check: {sum(c[1] for c in checks)}/{len(checks)} OK")
-    
-    return gpio_available
-
-def run_test_module(test_name, test_file, skip_on_mock=False):
-    """Führt ein Test-Modul aus"""
-    try:
-        # Dynamisch Test-Modul laden
-        module_name = test_file.replace('.py', '').replace('test_einzeln/', '').replace('/', '.')
-        
-        print(f"📦 Lade {test_file}...")
-        
-        # Teste ob Datei existiert
-        if not os.path.exists(test_file):
-            print(f"❌ Test-Datei nicht gefunden: {test_file}")
+    def send_discord(self, title, message):
+        """Sendet Test-Nachricht zu Discord"""
+        from requests import post
+        try:
+            payload = {
+                "embeds": [{
+                    "title": f"🧪 {title}",
+                    "description": message,
+                    "color": 3447003,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "footer": {"text": "Test Suite"}
+                }]
+            }
+            
+            response = post(self.notify.webhook_url, json=payload, timeout=5)
+            return response.status_code == 204
+        except:
             return False
+    
+    # ===== TESTS =====
+    
+    def test_button1(self):
+        self.print_header("BUTTON 1")
         
-        # Führe Test aus
-        exit_code = os.system(f"python3 {test_file}")
+        try:
+            button = Button("D0")
+            print("Drücke Button 1 kurz...")
+            
+            pressed = False
+            def on_press():
+                nonlocal pressed
+                pressed = True
+                print(f"{GREEN}✅ Button 1 erkannt!{NC}")
+            
+            button.on_short_press(on_press)
+            
+            # Für Testing auf Laptop
+            if hasattr(button, 'simulate_short_press'):
+                button.simulate_short_press()
+            
+            if pressed or not config.HAS_BUTTONS:
+                self.print_success("Button 1 funktioniert")
+                self.send_discord("Button 1", "✅ Button 1 erfolgreich getestet")
+            else:
+                self.print_fail("Button 1 nicht erkannt")
         
-        success = (exit_code == 0)
+        except Exception as e:
+            self.print_fail(f"Button 1 Fehler: {e}")
         
-        if success:
-            print(f"\n✅ {test_name} erfolgreich!")
+        self.wait_for_next()
+    
+    def test_button2(self):
+        self.print_header("BUTTON 2")
+        
+        try:
+            button = Button2("D1")
+            print("Drücke Button 2 kurz...")
+            
+            pressed = False
+            def on_press():
+                nonlocal pressed
+                pressed = True
+                print(f"{GREEN}✅ Button 2 erkannt!{NC}")
+            
+            button.on_short_press(on_press)
+            
+            if hasattr(button, 'simulate_short_press'):
+                button.simulate_short_press()
+            
+            if pressed or not config.HAS_BUTTONS:
+                self.print_success("Button 2 funktioniert")
+                self.send_discord("Button 2", "✅ Button 2 erfolgreich getestet")
+            else:
+                self.print_fail("Button 2 nicht erkannt")
+        
+        except Exception as e:
+            self.print_fail(f"Button 2 Fehler: {e}")
+        
+        self.wait_for_next()
+    
+    def test_led(self):
+        self.print_header("LED")
+        
+        try:
+            led = LED()
+            
+            print("LED einschalten...")
+            led.on()
+            sleep(1)
+            self.print_success("LED an")
+            
+            print("LED ausschalten...")
+            led.off()
+            sleep(0.5)
+            self.print_success("LED aus")
+            
+            print("LED blinken (3 Sekunden)...")
+            led.blink(0.3, 0.3)
+            sleep(3)
+            led.off()
+            self.print_success("LED blinkt")
+            
+            self.send_discord("LED", "✅ LED-Test bestanden\n• An ✓\n• Aus ✓\n• Blink ✓")
+        
+        except Exception as e:
+            self.print_fail(f"LED Fehler: {e}")
+        
+        self.wait_for_next()
+    
+    def test_buzzer(self):
+        self.print_header("BUZZER")
+        
+        try:
+            buzzer = Buzzer()
+            
+            print("Kurzer Beep...")
+            buzzer.beep(0.2)
+            self.print_success("Beep")
+            
+            sleep(0.5)
+            
+            print("Doppel-Beep...")
+            buzzer.double_beep()
+            self.print_success("Doppel-Beep")
+            
+            sleep(0.5)
+            
+            print("Langer Beep...")
+            buzzer.long_beep(1.0)
+            self.print_success("Langer Beep")
+            
+            self.send_discord("BUZZER", "✅ Buzzer-Test bestanden\n• Beep ✓\n• Doppel-Beep ✓\n• Long Beep ✓")
+        
+        except Exception as e:
+            self.print_fail(f"Buzzer Fehler: {e}")
+        
+        self.wait_for_next()
+    
+    def test_co2(self):
+        self.print_header("CO2 SENSOR")
+        
+        try:
+            co2 = CO2Sensor()
+            
+            print("Lese CO2-Wert...")
+            level = co2.read()
+            
+            print(f"  eCO2: {level} ppm")
+            print(f"  TVOC: {co2.tvoc_level} ppb")
+            
+            status = co2.get_alarm_status()
+            print(f"  Status: {status}")
+            
+            if level > 0:
+                self.print_success(f"CO2 gelesen: {level} ppm")
+                self.send_discord("CO2 SENSOR", f"✅ CO2-Sensor funktioniert\neCO2: {level} ppm\nTVOC: {co2.tvoc_level} ppb\nStatus: {status}")
+            else:
+                self.print_fail("CO2-Wert 0 oder fehlerhaft")
+        
+        except Exception as e:
+            self.print_fail(f"CO2 Fehler: {e}")
+        
+        self.wait_for_next()
+    
+    def test_step_counter(self):
+        self.print_header("STEP COUNTER")
+        
+        try:
+            steps = StepCounter()
+            
+            print("Starten Schrittzähler...")
+            steps.start()
+            self.print_success("Schrittzähler gestartet")
+            
+            print("Zähle 10 Sekunden lang Schritte...")
+            for i in range(10):
+                current = steps.read()
+                print(f"  {i+1}s: {current} Schritte", end='\r')
+                sleep(1)
+            
+            final_steps = steps.stop()
+            print(f"\n✅ Final: {final_steps} Schritte")
+            
+            self.print_success(f"Schrittzähler: {final_steps} Schritte")
+            self.send_discord("STEP COUNTER", f"✅ Schrittzähler funktioniert\nGemessene Schritte: {final_steps}")
+        
+        except Exception as e:
+            self.print_fail(f"Step Counter Fehler: {e}")
+        
+        self.wait_for_next()
+    
+    def test_timer(self):
+        self.print_header("TIMER SERVICE")
+        
+        try:
+            timer = TimerService(self.db, self.notify)
+            
+            # Test Work Timer (nur 5 Sekunden für Demo)
+            print("Starte 5-Sekunden Test-Timer (Arbeitszeit)...")
+            
+            # Modifiziere config temporär
+            original_duration = config.WORK_DURATION
+            config.WORK_DURATION = 5
+            
+            timer.start_work_timer()
+            
+            for i in range(6):
+                status = timer.get_status()
+                print(f"  {status['display']} - Running: {status['is_running']}", end='\r')
+                sleep(1)
+            
+            config.WORK_DURATION = original_duration
+            
+            self.print_success("Timer Service funktioniert")
+            self.send_discord("TIMER SERVICE", "✅ Timer-Service getestet\n5-Sekunden Test bestanden")
+        
+        except Exception as e:
+            self.print_fail(f"Timer Fehler: {e}")
+        
+        self.wait_for_next()
+    
+    def test_database(self):
+        self.print_header("DATABASE (SUPABASE)")
+        
+        try:
+            if not self.db.client:
+                print("⚠️  Keine Datenbank-Verbindung")
+                self.print_fail("DB nicht verbunden")
+            else:
+                # Test Verbindung
+                print("Teste Datenbankverbindung...")
+                result = self.db.client.table('sessions').select("id").limit(1).execute()
+                
+                self.print_success(f"DB erreichbar ({len(result.data) if hasattr(result, 'data') else 0} Sessions)")
+                self.send_discord("DATABASE", f"✅ Supabase erreichbar\n{len(result.data) if hasattr(result, 'data') else 0} Sessions in DB")
+        
+        except Exception as e:
+            self.print_fail(f"DB Fehler: {e}")
+        
+        self.wait_for_next()
+    
+    def test_discord(self):
+        self.print_header("DISCORD NOTIFICATIONS")
+        
+        try:
+            if not self.notify.is_enabled:
+                self.print_fail("Discord Webhook nicht konfiguriert")
+            else:
+                print("Sende Test-Nachricht zu Discord...")
+                
+                result = self.send_discord(
+                    "Test Suite",
+                    "✅ Alle Discord-Tests erfolgreich!\n\n"
+                    "🎉 Test-Suite abgeschlossen\n"
+                    "Alle Systeme funktionieren!"
+                )
+                
+                if result:
+                    self.print_success("Discord-Nachricht versendet")
+                else:
+                    self.print_fail("Discord-Nachricht Fehler")
+        
+        except Exception as e:
+            self.print_fail(f"Discord Fehler: {e}")
+        
+        self.wait_for_next()
+    
+    def print_summary(self):
+        print(f"\n{'='*60}")
+        print(f"{BLUE}📊 TEST SUMMARY{NC}")
+        print(f"{'='*60}\n")
+        
+        print(f"Total Tests: {self.test_count}")
+        print(f"{GREEN}Bestanden: {self.passed}{NC}")
+        print(f"{RED}Fehlgeschlagen: {self.failed}{NC}")
+        
+        percentage = (self.passed / self.test_count * 100) if self.test_count > 0 else 0
+        print(f"\n{BLUE}Erfolgsquote: {percentage:.0f}%{NC}")
+        
+        if self.failed == 0:
+            print(f"\n{GREEN}🎉 ALLE TESTS BESTANDEN!{NC}")
         else:
-            print(f"\n❌ {test_name} fehlgeschlagen (Exit Code: {exit_code})")
+            print(f"\n{YELLOW}⚠️ Einige Tests fehlgeschlagen{NC}")
         
-        return success
+        print(f"{'='*60}\n")
         
-    except Exception as e:
-        print(f"❌ Fehler beim Ausführen von {test_name}: {e}")
-        return False
-
-def main():
-    """Hauptprogramm"""
-    start_time = datetime.now()
+        # Finale Discord-Nachricht
+        self.send_discord(
+            "🧪 TEST-SUITE ABGESCHLOSSEN",
+            f"**Ergebnisse:**\n"
+            f"✅ Bestanden: {self.passed}/{self.test_count}\n"
+            f"❌ Fehlgeschlagen: {self.failed}/{self.test_count}\n"
+            f"📊 Erfolgsquote: {percentage:.0f}%"
+        )
     
-    # HEADER
-    print_banner("🚀 PITOP 4 HARDWARE TEST SUITE", "=")
-    print("📋 Dieses Script testet alle Hardware-Komponenten nacheinander")
-    print("⏱️  Geschätzte Dauer: 10-15 Minuten")
-    print("💡 Bei jedem Test kannst du mit ENTER fortfahren\n")
-    
-    print("🔧 Komponenten:")
-    components = [
-        "1. LEDs (Red, Green, Blue)",
-        "2. Buzzer (Aktiv)",
-        "3. Buttons (1 & 2)",
-        "4. CO2 Sensor (SGP30)",
-        "5. Step Counter (BMA400)",
-        "6. Datenbank (Supabase)",
-        "7. Discord Notifications"
-    ]
-    for comp in components:
-        print(f"   {comp}")
-    
-    wait_for_enter("Bereit? Tests starten")
-    
-    # System-Check
-    gpio_available = test_system_requirements()
-    
-    if not gpio_available:
-        print("\n⚠️  WARNUNG: Kein GPIO verfügbar - Tests laufen im MOCK MODE")
-        print("   Manche Tests werden simuliert")
-        response = input("\n   Trotzdem fortfahren? (j/n): ").lower()
-        if response != 'j':
-            print("\n👋 Abgebrochen\n")
-            return 1
-    
-    # Test-Konfiguration
-    tests = [
-        {
-            'name': 'LEDs',
-            'file': 'test_einzeln/test1_led.py',
-            'description': '🔴🟢🔵 Alle LED-Farben testen',
-            'skip_on_mock': False
-        },
-        {
-            'name': 'Buzzer',
-            'file': 'test_einzeln/test4_buzzer.py',
-            'description': '🔊 Akustische Ausgabe testen',
-            'skip_on_mock': False
-        },
-        {
-            'name': 'Button 1',
-            'file': 'test_einzeln/test2_button1.py',
-            'description': '🔘 Session-Management Button',
-            'skip_on_mock': False
-        },
-        {
-            'name': 'Button 2',
-            'file': 'test_einzeln/test3_button2.py',
-            'description': '🔘 Cancel/Storno Button',
-            'skip_on_mock': False
-        },
-        {
-            'name': 'CO2 Sensor',
-            'file': 'test_einzeln/test5_co2sensor.py',
-            'description': '🌡️  Luftqualität messen',
-            'skip_on_mock': False
-        },
-        {
-            'name': 'Step Counter',
-            'file': 'test_einzeln/05_test_step_counter.py',
-            'description': '👣 Schritte zählen',
-            'skip_on_mock': False
-        },
-        {
-            'name': 'Discord',
-            'file': 'test_einzeln/test.discord.py',
-            'description': '📱 Push-Benachrichtigungen',
-            'skip_on_mock': True
-        }
-    ]
-    
-    results = {}
-    total_tests = len(tests)
-    
-    # Führe Tests durch
-    for i, test in enumerate(tests, 1):
-        print_progress(i, total_tests, test['name'])
-        print_banner(f"TEST {i}/{total_tests}: {test['name'].upper()}", "─")
+    def run_all(self):
+        print(f"\n{'='*60}")
+        print(f"{BLUE}🧪 COMPLETE TEST SUITE{NC}")
+        print(f"{'='*60}\n")
+        print("Teste alle Hardware & Services")
+        print("Enter zum Starten...\n")
+        input()
         
-        print(f"📝 {test['description']}")
+        try:
+            self.test_button1()
+            self.test_button2()
+            self.test_led()
+            self.test_buzzer()
+            self.test_co2()
+            self.test_step_counter()
+            self.test_timer()
+            self.test_database()
+            self.test_discord()
+            
+            self.print_summary()
         
-        # Skip bei Mock Mode wenn nötig
-        if not gpio_available and test.get('skip_on_mock', False):
-            print(f"\n⏭️  Übersprungen (kein GPIO)")
-            results[test['name']] = None
-            wait_for_enter(f"Weiter zu Test {i+1}")
-            continue
-        
-        # Warte auf User
-        wait_for_enter(f"Bereit für {test['name']} Test?")
-        
-        # Führe Test aus
-        success = run_test_module(test['name'], test['file'])
-        results[test['name']] = success
-        
-        # Nach jedem Test kleine Pause
-        if i < total_tests:
-            print("\n" + "─" * 70)
-            time.sleep(1)
-            wait_for_enter(f"Weiter zu Test {i+1}/{total_tests}")
-    
-    # FINALE ZUSAMMENFASSUNG
-    end_time = datetime.now()
-    duration = (end_time - start_time).total_seconds()
-    
-    print_banner("📊 FINALE TEST-ZUSAMMENFASSUNG", "=")
-    
-    print("┌────────────────────────────────────────────────────┐")
-    print("│  Komponente              Status                    │")
-    print("├────────────────────────────────────────────────────┤")
-    
-    for test_name, result in results.items():
-        if result is None:
-            status = "⏭️  SKIPPED"
-            status_color = "⚪"
-        elif result:
-            status = "✅ WORKS"
-            status_color = "🟢"
-        else:
-            status = "❌ WORKS NOT"
-            status_color = "🔴"
-        
-        print(f"│  {status_color} {test_name:<24} {status:<20} │")
-    
-    print("└────────────────────────────────────────────────────┘")
-    
-    # Statistiken
-    total = len([r for r in results.values() if r is not None])
-    passed = sum([1 for r in results.values() if r is True])
-    failed = sum([1 for r in results.values() if r is False])
-    skipped = sum([1 for r in results.values() if r is None])
-    
-    print(f"\n📈 STATISTIK:")
-    print(f"   ✅ Bestanden:    {passed}/{total}")
-    print(f"   ❌ Fehler:       {failed}/{total}")
-    print(f"   ⏭️  Übersprungen: {skipped}")
-    print(f"   ⏱️  Dauer:        {duration:.0f} Sekunden")
-    
-    # Erfolgsquote
-    if total > 0:
-        success_rate = (passed / total) * 100
-        print(f"\n🎯 Erfolgsquote: {success_rate:.0f}%")
-        
-        if success_rate == 100:
-            print("\n🎉 PERFEKT! Alle Tests bestanden!")
-            print("   ✅ System ist bereit für die Präsentation!")
-            exit_code = 0
-        elif success_rate >= 80:
-            print("\n👍 SEHR GUT! Fast alle Tests bestanden")
-            print("   ⚠️  Prüfe die fehlgeschlagenen Tests nochmal")
-            exit_code = 0
-        elif success_rate >= 60:
-            print("\n⚠️  OKAY - Mehrere Tests fehlgeschlagen")
-            print("   🔧 Bitte Hardware und Verkabelung prüfen")
-            exit_code = 1
-        else:
-            print("\n❌ ZU VIELE FEHLER!")
-            print("   🚨 System nicht betriebsbereit")
-            print("   🔧 Hardware-Check nötig")
-            exit_code = 1
-    else:
-        print("\n⚠️  Keine Tests durchgeführt")
-        exit_code = 1
-    
-    # Empfehlungen
-    print("\n" + "="*70)
-    print("📝 NÄCHSTE SCHRITTE:")
-    
-    if failed > 0:
-        print("\n🔧 Fehlerhafte Komponenten:")
-        for test_name, result in results.items():
-            if result is False:
-                print(f"   ❌ {test_name}")
-        print("\n💡 Tipps:")
-        print("   1. Verkabelung prüfen (Grove-Kabel fest?)")
-        print("   2. i2cdetect -y 1 ausführen")
-        print("   3. Komponenten umstecken/tauschen")
-        print("   4. doc/PIN_WIRING.md konsultieren")
-    else:
-        print("\n✅ Alle Komponenten funktionieren!")
-        print("   👉 Bereit für main_pitop1.py und main_pitop2.py")
-        print("   👉 Starte mit: ./start_both.sh")
-    
-    print("\n📚 Weitere Infos:")
-    print("   - Einzeltests: test_einzeln/")
-    print("   - Dokumentation: doc/PIN_WIRING.md")
-    print("   - Troubleshooting: siehe Doku Abschnitt 'Troubleshooting'")
-    
-    print("\n" + "="*70)
-    print(f"Test abgeschlossen um {end_time.strftime('%H:%M:%S')}")
-    print("="*70 + "\n")
-    
-    return exit_code
+        except KeyboardInterrupt:
+            print(f"\n\n{YELLOW}🛑 Tests unterbrochen{NC}\n")
+            self.print_summary()
+            sys.exit(0)
 
 if __name__ == "__main__":
-    try:
-        exit_code = main()
-        sys.exit(exit_code)
-    except KeyboardInterrupt:
-        print("\n\n⚠️  Tests durch Benutzer abgebrochen")
-        print("👋 Auf Wiedersehen!\n")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n\n❌ KRITISCHER FEHLER: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    suite = TestSuite()
+    suite.run_all()

@@ -1,47 +1,48 @@
-# hardware/buzzer.py
-import RPi.GPIO as GPIO
-import time
-from threading import Thread
-import config
+import threading
+from time import sleep
+from config import BUZZER_PIN, BUZZER_TIMER_DURATION, BUZZER_CO2_DURATION, BUZZER_CO2_INTERVAL, BUZZER_CO2_REPETITIONS
+from . import IS_PITOP, PitopBuzzer
 
 class Buzzer:
-    def __init__(self, pin=config.BUZZER_PIN):
-        self.pin = pin
-        self.is_buzzing = False
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.pin, GPIO.OUT)
-        GPIO.output(self.pin, GPIO.LOW)
+    def __init__(self, pin_name=None):
+        self.pin_name = pin_name or BUZZER_PIN
+        if IS_PITOP:
+            self.buzzer = PitopBuzzer(self.pin_name)
+        else:
+            self.buzzer = None
+        self.beep_thread = None
     
-    def beep_short(self, times=config.BUZZER_CO2_REPETITIONS):
-        """Kurze Pieptöne für CO2-Alarm"""
-        if self.is_buzzing:
-            return
-        
-        def _beep():
-            self.is_buzzing = True
-            for _ in range(times):
-                GPIO.output(self.pin, GPIO.HIGH)
-                time.sleep(config.BUZZER_CO2_DURATION)
-                GPIO.output(self.pin, GPIO.LOW)
-                time.sleep(config.BUZZER_CO2_INTERVAL)
-            self.is_buzzing = False
-        
-        Thread(target=_beep, daemon=True).start()
+    def on(self):
+        if self.buzzer:
+            self.buzzer.on()
     
-    def beep_long(self):
-        """Langer Piepton für Timer-Ende"""
-        if self.is_buzzing:
-            return
-        
-        def _beep():
-            self.is_buzzing = True
-            GPIO.output(self.pin, GPIO.HIGH)
-            time.sleep(config.BUZZER_TIMER_DURATION)
-            GPIO.output(self.pin, GPIO.LOW)
-            self.is_buzzing = False
-        
-        Thread(target=_beep, daemon=True).start()
+    def off(self):
+        if self.buzzer:
+            self.buzzer.off()
     
-    def cleanup(self):
-        GPIO.output(self.pin, GPIO.LOW)
-        GPIO.cleanup(self.pin)
+    def beep(self, duration=0.2):
+        if self.buzzer:
+            self.buzzer.on()
+            sleep(duration)
+            self.buzzer.off()
+        print(f"🔊 Beep ({duration}s)")
+    
+    def long_beep(self, duration=2.0):
+        self.beep(duration)
+    
+    def double_beep(self):
+        self.beep(0.2)
+        sleep(0.2)
+        self.beep(0.2)
+    
+    def co2_alarm(self):
+        thread = threading.Thread(target=self._co2_pattern, daemon=True)
+        thread.start()
+    
+    def _co2_pattern(self):
+        for _ in range(BUZZER_CO2_REPETITIONS):
+            self.beep(BUZZER_CO2_DURATION)
+            sleep(BUZZER_CO2_INTERVAL)
+    
+    def timer_alarm(self):
+        self.long_beep(BUZZER_TIMER_DURATION)

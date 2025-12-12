@@ -3,7 +3,7 @@
 
 REPO_PATH="/mnt/c/Users/knigh/LF7_project"
 REMOTE_URL="https://github.com/Johnyboi77/LF7_project.git"
-BRANCH="main"
+BRANCH="dev"
 
 # TO change branch
 # -->     git checkout -b dev
@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - PiTop Vorbereitung"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Neue Bibliothek eingebunden"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"

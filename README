@@ -3,25 +3,27 @@ Projekt
 
 # Projektablauf
 1. 🎮 Button 1 kurz drücken
-   → 🎓 Session startet automatisch
+   → 🎓 Work Session startet automatisch
    → 📱 Discord: "Hey Alicia! Deine Lerneinheit wurde gestartet!"
-   → 🟦 30min Arbeitszeit läuft
+   → 🟦 30min Arbeitszeit läuft (timer)
 
 2. ⏰ Nach 30 Min
-   → 🔊 Langer Piepton
+   → 🔊 Langer Piepton mit Buzzer
    → 📱 Discord: "Deine 30-Minuten Lernphase ist vorbei!"
+   → Schrittzähler startet mit dem Erfassen von Schritten um in der Pause ALLE Schritte aufzunehmen statt ggf nur von 9:57min
 
 3. 🎮 Button 2 kurz drücken
-   → 🟩 10min Pause läuft
+   → 🟩 10min Pause läuft (timer)
 
 4. ⏰ Nach 10 Min
-   → 🔊 Langer Piepton
-   → 📱 Discord: "Deine Pause ist abgelaufen!"
+   → 📱 Discord Push Nachricht: "Deine Pause ist abgelaufen!"
+   → Neuer Worktimer kann mit erneutem betätigen des buttons gestartet werden
+   → Schrittzähler stoppt erfassung und pusht zu datenbanktable in supabase
 
-5. ... weitere Lern-/Pausezyklen ...
+5. ... weitere Lern-/Pausezyklen sind unbegrenzt möglich...
 
 6. 🎮 Button 1 für 5+ Sekunden halten
-   → 🛑 Session beendet
+   → 🛑 Session beendet (jederzeit möglich)
    → 📊 Report im Terminal + Discord:
       "Session-Report für Alicia
        Lernzeit: 90 Min
@@ -30,7 +32,13 @@ Projekt
        Schritte: 1.247
        Tolle Arbeit! 🎉"
 
-# Prüfen ob es diese sind
+7. Button 1 und 2 2x drücken
+   → Letzte Eingabe über den Knopf wird beendet/storniert für Versehentliche betätigung
+
+8. Zusätzlich überwacht ein CO2 Sensor den Sauerstoffgehalt und lässt bei unterschreitung der 1. grenze eine rote led leuchten / bei unterschreitung der zweiten Grenzen -> Ton über button (doppel biep)
+ und Push NAchricht sinngemäß: Lüfte mal!
+
+# Vermutlich werden diese besonderen Sensoren verwendet
 VOC and eCO2 Gas Sensor (SKU: 101020512)
     Chip: Wahrscheinlich SGP30 oder CCS811
     Schnittstelle: I2C
@@ -133,6 +141,9 @@ ping 192.168.0.53
 ssh pi@192.168.0.53
 
 ls -la
+
+exit 
+# um Pitop sicher zu verlassen, ansonsten muss er neugestartet werden weil Port 22 belegt ist
 
 
 ### Hinzufügen in alle Files wie LED ect - Can hat Tipp gegeben

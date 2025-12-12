@@ -1,498 +1,426 @@
 #!/usr/bin/env python3
 """
-PiTop 1 - Arbeitsstation mit CO2-Überwachung
-KORRIGIERT für deine Hardware-Klassen
+pi-top 1 - Effektiver Lernen mit State Machine
+Button 1 + Button 2 + LED + Buzzer + CO2 Sensor
+KEIN Schrittzähler (läuft auf PiTop 2)
 """
 
 import signal
 import sys
-import time
+from time import sleep
 from datetime import datetime
-import uuid
-import config
 
-from database.supabase_manager import SupabaseManager
-from hardware.buzzer import Buzzer
-from hardware.led import LED
-from hardware.button1 import Button1
+import config
+from hardware.button1 import Button
 from hardware.button2 import Button2
+from hardware.led import LED
+from hardware.buzzer import Buzzer
 from hardware.Co2_sensor import CO2Sensor
 from services.timer_service import TimerService
 from services.notification_service import NotificationService
+from database.supabase_manager import SupabaseManager
 
-class PiTop1WorkStation:
+
+class LearningSession:
     def __init__(self):
         print("\n" + "="*60)
-        print("🚀 PITOP 1 - ARBEITSSTATION")
-        print("="*60 + "\n")
+        print("🎓 LEARNING ASSISTANT - pi-top 1")
+        print("="*60)
         
-        # Prüfe Device Type
-        if config.DEVICE_TYPE != "work_station":
-            print(f"⚠️  WARNUNG: Hostname '{config.HOSTNAME}' passt nicht zu PiTop 1!")
-            print("   Bitte hostname auf 'pitop1' setzen!")
-        
-        # Datenbank
-        self.db = SupabaseManager()
-        
-        # Hardware
-        self.buzzer = Buzzer()
+        # Hardware (OHNE Schrittzähler)
+        self.button1 = Button("D0")
+        self.button2 = Button2("D1")
         self.led = LED()
+        self.buzzer = Buzzer()
+        self.co2 = CO2Sensor()
         
         # Services
-        self.notification_service = NotificationService()
+        self.timer = TimerService(self._get_db(), NotificationService())
+        self.notify = NotificationService()
+        self.db = self._get_db()
         
-        # Timer Service - KORRIGIERT: nur 2 Parameter
-        self.timer = TimerService(
-            self.db,
-            self.notification_service
-        )
+        # State Machine
+        self.state = "IDLE"  # IDLE → WORKING → BREAK → WORKING → DONE
+        self.session_id = None
+        self.co2_alarm_active = False
+        self.last_co2_warning = None
         
-        # CO2 Sensor - Parameter passen ✅
-        self.co2_sensor = CO2Sensor(
-            self.buzzer,
-            self.led,
-            self.notification_service,
-            self.db
-        )
-        
-        # Session State
-        self.current_session_id = None
-        self.session_active = False
-        self.pause_count = 0
-        self.work_start_time = None
-        
-        # Buttons - KORRIGIERT: long_press ist session beenden
-        self.button1 = Button1(
-            pin=config.BUTTON1_PIN,
-            short_press_callback=self.on_button1_short,
-            double_click_callback=self.on_button1_double,
-            long_press_callback=self.on_button1_long  # Das ist Session beenden!
-        )
-        
-        self.button2 = Button2(
-            pin=config.BUTTON2_PIN,
-            short_press_callback=self.on_button2_cancel,
-            long_press_callback=self.on_button2_cancel
-        )
-        
-        print("✅ Alle Komponenten initialisiert\n")
+        self._setup_callbacks()
+        print(f"✅ Initialisierung abgeschlossen\n")
     
-    def on_button1_short(self):
-        """Button 1 kurz: Arbeitsphase starten/fortsetzen"""
-        if not self.session_active:
-            self._start_session()
-        
-        print("\n▶️  ARBEITSPHASE STARTET (30 Min)")
-        self.work_start_time = time.time()
-        
-        # In DB loggen
-        if self.db.client:
-            try:
-                self.db.client.table('button_logs').insert({
-                    'session_id': self.current_session_id,
-                    'button_number': 1,
-                    'action': 'work_start',
-                    'timestamp': datetime.now().isoformat()
-                }).execute()
-            except:
-                pass
-        
-        # Grüne LED an
-        self.led.set_green()
-        
-        # Warte auf Timer-Ende
-        self._wait_for_work_timer()
+    def _get_db(self):
+        """Lazy-Init für DB"""
+        return SupabaseManager()
     
-    def on_button1_double(self):
-        """Button 1 doppelt: Timer Reset"""
-        print("\n🔄 Timer Reset")
-        self.work_start_time = None
-        self.led.off()
+    def _setup_callbacks(self):
+        """Registriert Button-Callbacks"""
+        self.button1.on_short_press(self._btn1_short)
+        self.button1.on_long_press(self._btn1_long)
+        self.button1.on_double_click(self._cancel_last_action)
         
-        if self.db.client:
-            try:
-                self.db.client.table('button_logs').insert({
-                    'session_id': self.current_session_id,
-                    'button_number': 1,
-                    'action': 'reset',
-                    'timestamp': datetime.now().isoformat()
-                }).execute()
-            except:
-                pass
+        self.button2.on_short_press(self._btn2_short)
+        self.button2.on_double_click(self._cancel_last_action)
     
-    def on_button1_long(self):
+    # ===== BUTTON CALLBACKS =====
+    
+    def _btn1_short(self):
+        """Button 1 kurz: Start Work oder Resume nach Pause"""
+        if self.state == "IDLE":
+            self._start_work_session()
+        elif self.state == "BREAK" and not self.timer.is_running:
+            self._resume_work_session()
+    
+    def _btn1_long(self):
         """Button 1 lang (5+s): Session beenden"""
-        if self.session_active:
-            print("\n🛑 SESSION WIRD BEENDET...")
+        if self.state in ["WORKING", "BREAK"]:
             self._end_session()
-        else:
-            print("\n⚠️  Keine aktive Session!")
     
-    def on_button2_cancel(self):
-        """Button 2: Letzte Pause stornieren"""
-        if self.session_active and self.pause_count > 0:
-            print(f"\n↩️  STORNIERE letzte Pause (#{self.pause_count})")
-            
-            if self.db.client:
-                try:
-                    # Hole letzte Pause
-                    breaks_result = self.db.client.table('breakdata')\
-                        .select('*')\
-                        .eq('session_id', self.current_session_id)\
-                        .order('pause_number', desc=True)\
-                        .limit(1)\
-                        .execute()
-                    
-                    if breaks_result.data:
-                        last_break = breaks_result.data[0]
-                        # Als storniert markieren
-                        self.db.client.table('breakdata')\
-                            .update({
-                                'cancelled': True,
-                                'cancelled_at': datetime.now().isoformat()
-                            })\
-                            .eq('id', last_break['id'])\
-                            .execute()
-                        
-                        print("✅ Pause in DB storniert")
-                except Exception as e:
-                    print(f"⚠️  DB-Fehler: {e}")
-            
-            self.pause_count -= 1
-            print("✅ Pause storniert, Timer kann neu gestartet werden")
-        else:
-            print("\n⚠️  Keine Pause zum Stornieren!")
-    
-    def _start_session(self):
-        """Startet neue Lern-Session"""
-        print("\n" + "="*60)
-        print(f"🎓 NEUE SESSION GESTARTET")
-        print(f"👤 Nutzer: {config.USER_NAME}")
-        print("="*60 + "\n")
-        
-        self.current_session_id = str(uuid.uuid4())
-        
-        if self.db.client:
-            try:
-                self.db.client.table('sessions').insert({
-                    'id': self.current_session_id,
-                    'device_id': config.DEVICE_ID,
-                    'start_time': datetime.now().isoformat(),
-                    'user_name': config.USER_NAME,
-                    'timer_status': 'ready',
-                    'pause_count': 0
-                }).execute()
-                
-                print(f"✅ Session in DB erstellt (ID: {self.current_session_id[:8]}...)")
-            except Exception as e:
-                print(f"❌ DB-Fehler: {e}")
-        
-        self.session_active = True
-        self.pause_count = 0
-        
-        # CO2 Sensor mit Session verknüpfen
-        self.co2_sensor.set_session_id(self.current_session_id)
-        
-        # Discord Notification
-        if config.NOTIFY_SESSION_START:
-            try:
-                self.notification_service.send_session_start()
-            except:
-                pass
-    
-    def _wait_for_work_timer(self):
-        """Wartet 30 Minuten Arbeitszeit"""
-        duration = config.WORK_DURATION
-        start = self.work_start_time
-        
-        try:
-            while time.time() - start < duration:
-                elapsed = time.time() - start
-                remaining = duration - elapsed
-                
-                mins, secs = divmod(int(remaining), 60)
-                print(f"\r⏱️  Arbeit: {mins:02d}:{secs:02d}", end='', flush=True)
-                
-                time.sleep(1)
-            
-            print("\n\n🎉 ARBEITSPHASE BEENDET!")
-            self.buzzer.beep(2)
-            
+    def _btn2_short(self):
+        """Button 2 kurz: Start Break"""
+        if self.state == "WORKING":
             self._start_break()
-            
-        except KeyboardInterrupt:
-            raise
+    
+    def _cancel_last_action(self):
+        """Button 1+2 2x: Letzte Aktion stornieren"""
+        print("↩️  LETZTE AKTION STORNIERT")
+        if self.state == "WORKING":
+            self.timer.reset()
+            self.state = "IDLE"
+            self.led.off()
+        elif self.state == "BREAK":
+            self.timer.reset()
+            self.state = "IDLE"
+            self.led.off()
+    
+    # ===== WORK SESSION =====
+    
+    def _start_work_session(self):
+        """🎓 Startet neue Arbeitsphase (30 Min)"""
+        
+        if self.state != "IDLE":
+            return
+        
+        print("\n" + "="*60)
+        print("🎓 ARBEITSPHASE GESTARTET")
+        print("="*60)
+        
+        self.state = "WORKING"
+        
+        # Session in DB erstellen
+        self.session_id = self.db.create_session()
+        self.timer.set_session_id(self.session_id)
+        
+        # UI Feedback
+        self.led.on()  # Weiß/Grün
+        self.buzzer.beep(0.2)
+        
+        # Discord Benachrichtigung
+        self.notify.send_session_start()
+        
+        # Timer starten (30 Min)
+        self.timer.start_work_timer()
+    
+    def _resume_work_session(self):
+        """💪 Nach Pause weiterarbeiten"""
+        
+        print("\n" + "="*60)
+        print("💪 ARBEITSPHASE FORTGESETZT")
+        print("="*60)
+        
+        self.state = "WORKING"
+        self.led.on()
+        self.buzzer.beep(0.2)
+        
+        # Neue Arbeitsphase (30 Min)
+        self.timer.start_work_timer()
+    
+    # ===== BREAK SESSION =====
     
     def _start_break(self):
-        """Startet Pausenphase auf PiTop 2"""
-        self.pause_count += 1
+        """☕ Pausenphase signalisieren (nur DB-Status, nicht lokal)"""
+        
+        if self.state != "WORKING":
+            return
         
         print("\n" + "="*60)
-        print(f"☕ PAUSENPHASE #{self.pause_count} STARTET (10 Min)")
+        print("☕ PAUSENPHASE INITIIERT")
         print("="*60)
-        print("\n📡 Signal an PiTop 2 wird gesendet...")
+        print("\n📡 Signalisiere Break an PiTop 2...")
         
-        if self.db.client:
-            try:
-                # Pause in DB anlegen
-                pause_id = str(uuid.uuid4())
-                self.db.client.table('breakdata').insert({
-                    'id': pause_id,
-                    'session_id': self.current_session_id,
-                    'pause_number': self.pause_count,
-                    'timestamp': datetime.now().isoformat(),
-                    'step_count': 0,
-                    'device_id': 'pitop2_break',
-                    'cancelled': False
-                }).execute()
-                
-                # Session-Status auf 'break' setzen
-                self.db.client.table('sessions').update({
-                    'pause_count': self.pause_count,
-                    'timer_status': 'break',
-                    'current_pause_start': datetime.now().isoformat()
-                }).eq('id', self.current_session_id).execute()
-                
-                print("✅ Pause-Signal in DB gesetzt")
-            except Exception as e:
-                print(f"❌ DB-Fehler: {e}")
+        self.state = "BREAK"
         
-        self.led.off()
+        # Work-Zeit speichern
+        work_elapsed = self.timer.remaining_time
+        print(f"⏱️  Arbeitszeit gespeichert: {work_elapsed}s")
         
-        # Notification
-        if config.NOTIFY_BREAK_START:
-            try:
-                self.notification_service.send_message(
-                    f"☕ **Pause #{self.pause_count} gestartet**\n\n"
-                    f"⏱️ 10 Minuten Pause\n"
-                    f"👣 Bewegung wird auf PiTop 2 getrackt\n\n"
-                    f"💪 Entspann dich!"
-                )
-            except:
-                pass
+        # Timer stoppen (lokal, nicht starten)
+        self.timer.stop_event.set()
+        self.timer.is_running = False
         
-        print("\n💡 OPTIONEN:")
-        print("   Button 1 (kurz)  → Nächste Arbeitsphase starten")
-        print("   Button 1 (5+s)   → Session beenden + Report")
-        print("   Button 2         → Letzte Pause stornieren\n")
-        print("⏸️  Warte auf Fortsetzung...\n")
+        # UI Feedback
+        self.led.blink(0.5, 0.5)  # Blinken = Break aktiv
+        self.buzzer.beep(0.2)
+        
+        # Discord: Break vorbei
+        self.notify.send_work_finished()
+        
+        # Update DB-Status zu 'break'
+        # → PiTop 2 erkennt das Signal und startet Schrittzähler
+        self._update_break_status('break')
+        
+        # Warte 10 Minuten lokal (synchron mit PiTop 2)
+        self._wait_for_break()
     
-    def _end_session(self):
-        """Beendet Session und erstellt Report"""
-        print("\n" + "="*60)
-        print("🛑 SESSION WIRD BEENDET")
-        print("="*60 + "\n")
+    def _update_break_status(self, status):
+        """📊 Aktualisiert Break-Status in DB"""
         
-        if self.db.client:
-            try:
-                self.db.client.table('sessions').update({
-                    'end_time': datetime.now().isoformat(),
-                    'timer_status': 'ended'
-                }).eq('id', self.current_session_id).execute()
-            except:
-                pass
-        
-        # Statistiken sammeln
-        session_stats = self._calculate_session_stats()
-        
-        # Report anzeigen
-        self._show_session_report(session_stats)
-        
-        # Discord Report
-        if config.NOTIFY_SESSION_END:
-            try:
-                self.notification_service.send_session_report(session_stats)
-            except:
-                pass
-        
-        # Cleanup
-        self.session_active = False
-        self.current_session_id = None
-        self.pause_count = 0
-        self.work_start_time = None
-        self.led.off()
-        
-        print("\n✅ Session beendet!\n")
-    
-    def _calculate_session_stats(self):
-        """Sammelt Session-Statistiken aus DB"""
-        stats = {
-            'start_time': datetime.now(),
-            'end_time': datetime.now(),
-            'total_work_time': 0,
-            'total_pause_time': 0,
-            'pause_count': 0,
-            'avg_co2': 0,
-            'max_co2': 0,
-            'warnings': 0,
-            'total_steps': 0,
-            'calories': 0,
-            'distance': 0
-        }
-        
-        if not self.db.client:
-            return stats
+        if not self.db.client or not self.session_id:
+            return
         
         try:
-            # Session-Daten
-            session_result = self.db.client.table('sessions').select('*').eq('id', self.current_session_id).execute()
-            if session_result.data:
-                session = session_result.data[0]
-                stats['start_time'] = session.get('start_time')
-                stats['end_time'] = session.get('end_time')
-                stats['pause_count'] = session.get('pause_count', 0)
+            self.db.client.table('sessions').update({
+                'timer_status': status
+            }).eq('session_id', self.session_id).execute()
             
-            # Pausen-Daten (nur nicht-stornierte)
-            breaks_result = self.db.client.table('breakdata')\
-                .select('*')\
-                .eq('session_id', self.current_session_id)\
-                .eq('cancelled', False)\
-                .execute()
-            
-            if breaks_result.data:
-                breaks = breaks_result.data
-                stats['total_steps'] = sum([b.get('step_count', 0) for b in breaks])
-                stats['total_pause_time'] = len(breaks) * config.BREAK_DURATION
-            
-            # CO2-Daten
-            co2_result = self.db.client.table('co2_measurements')\
-                .select('*')\
-                .eq('session_id', self.current_session_id)\
-                .execute()
-            
-            if co2_result.data:
-                co2_data = co2_result.data
-                co2_levels = [m.get('co2_level', 0) for m in co2_data if m.get('co2_level')]
-                if co2_levels:
-                    stats['avg_co2'] = sum(co2_levels) / len(co2_levels)
-                    stats['max_co2'] = max(co2_levels)
-                    stats['warnings'] = sum([1 for m in co2_data if m.get('is_alarm', False)])
-            
-            # Zeiten
-            stats['total_work_time'] = stats['pause_count'] * config.WORK_DURATION
-            
-            # Kalorien & Distanz
-            stats['calories'] = int(stats['total_steps'] * config.CALORIES_PER_STEP)
-            stats['distance'] = int(stats['total_steps'] * config.METERS_PER_STEP)
-            
+            print(f"✅ DB Status: {status} (PiTop 2 sollte jetzt reagieren)")
+        
         except Exception as e:
-            print(f"⚠️  Fehler beim Statistik-Sammeln: {e}")
-        
-        return stats
+            print(f"⚠️  Status-Update Fehler: {e}")
     
-    def _show_session_report(self, stats):
-        """Zeigt detaillierten Session Report"""
-        work_mins = stats['total_work_time'] // 60
-        break_mins = stats['total_pause_time'] // 60
-        work_count = stats['pause_count']
-        avg_co2 = stats['avg_co2']
-        max_co2 = stats['max_co2']
-        warnings = stats['warnings']
-        steps = stats['total_steps']
-        calories = stats['calories']
-        distance = stats['distance']
+    def _wait_for_break(self):
+        """⏱️ Wartet 10 Minuten lokal während PiTop 2 Schritte zählt"""
         
-        # Datum formatieren
-        start_time = stats['start_time']
-        if isinstance(start_time, str):
-            try:
-                start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-            except:
-                start_time = datetime.now()
+        print(f"\n⏱️  Break-Timer: 10 Minuten")
+        print("👣 PiTop 2 zählt jetzt Schritte...\n")
         
-        date_str = start_time.strftime("%d.%m.%Y")
-        time_str = start_time.strftime("%H:%M")
+        break_duration = config.BREAK_DURATION
+        start_time = sleep.__doc__  # Trick zur Zeitmessung
+        import time
+        start_time = time.time()
         
-        # Produktivität
-        total = work_mins + break_mins
-        productivity = (work_mins / total * 100) if total > 0 else 0
+        try:
+            while time.time() - start_time < break_duration:
+                elapsed = time.time() - start_time
+                remaining = break_duration - elapsed
+                
+                mins, secs = divmod(int(remaining), 60)
+                
+                print(f"\r⏱️  {mins:02d}:{secs:02d} verbleibend (Break läuft auf beiden PiTops)", 
+                      end='', flush=True)
+                
+                sleep(1)
+            
+            print(f"\n\n⏰ BREAK ABGELAUFEN!")
+        
+        except KeyboardInterrupt:
+            print(f"\n\n⚠️  Break unterbrochen!")
+        
+        finally:
+            # Break beenden
+            self._end_break()
+    
+    def _end_break(self):
+        """☕ Beendet Break-Phase"""
         
         print("\n" + "="*60)
-        print("┌──────────────────────────────────────────────────────┐")
-        print("│              📊 SESSION REPORT                       │")
-        print("├──────────────────────────────────────────────────────┤")
-        print(f"│ 📅 Datum:          {date_str}                     │")
-        print(f"│ 🕐 Startzeit:      {time_str}                        │")
-        print("├──────────────────────────────────────────────────────┤")
-        print(f"│ ⏱️  Lernzeit:        {work_mins:3d} Min                │")
-        print(f"│ ☕ Pausenzeit:      {break_mins:3d} Min                │")
-        print(f"│ 📚 Einheiten:       {work_count:3d}                     │")
-        print(f"│ ⚡ Produktivität:   {productivity:3.0f}%                │")
-        print("├──────────────────────────────────────────────────────┤")
-        print(f"│ 🌡️  eCO2 Ø:         {int(avg_co2):4d} ppm             │")
-        print(f"│ 📈 eCO2 Max:       {int(max_co2):4d} ppm             │")
-        print(f"│ ⚠️  Warnungen:      {warnings:3d}                     │")
-        print("├──────────────────────────────────────────────────────┤")
-        print(f"│ 👣 Schritte:       {steps:5,}                   │")
-        print(f"│ 🔥 Kalorien:       ~{calories:3d} kcal              │")
-        print(f"│ 📏 Distanz:        ~{distance}m                  │")
-        print("└──────────────────────────────────────────────────────┘")
-        print("="*60 + "\n")
-    
-    def start(self):
-        """Startet alle Services"""
-        print("▶️  Starte Monitoring...\n")
-        
-        # CO2 Monitoring starten
-        self.co2_sensor.start_monitoring(interval=config.CO2_MEASURE_INTERVAL)
-        
-        print("\n" + "="*60)
-        print("✅ PITOP 1 LÄUFT!")
+        print("☕ BREAK BEENDET")
         print("="*60)
-        print(f"\n👤 Nutzer: {config.USER_NAME}")
-        print(f"🔧 Device: {config.DEVICE_ID}")
-        print("\n🎮 STEUERUNG:")
-        print("   Button 1 (kurz)   → Arbeitszeit starten (30min)")
-        print("   Button 1 (2x)     → Timer Reset")
-        print("   Button 1 (lang)   → 🛑 SESSION BEENDEN + Report")
-        print()
-        print("   Button 2          → Letzte Pause stornieren")
-        print("\n🔄 WORKFLOW:")
-        print("   1. Button 1 drücken → Session startet, 30min Timer")
-        print("   2. Nach 30min → PiTop 2 übernimmt (10min Pause)")
-        print("   3. Button 1 drücken → Nächste 30min Arbeitsphase")
-        print("   4. Button 1 (lang) → Session beenden + Report")
-        print("\n🌡️  CO2-WARNUNG:")
-        print(f"   - Ab {config.CO2_WARNING_THRESHOLD} ppm  → 🔴 LED + Discord")
-        print(f"   - Ab {config.CO2_CRITICAL_THRESHOLD} ppm → 🔴 LED + Buzzer")
-        print("\n📱 DISCORD:")
-        if config.DISCORD_ENABLED:
-            print("   - Benachrichtigungen aktiv ✅")
+        
+        # LED aus / normal
+        self.led.off()
+        self.buzzer.beep(0.1)
+        
+        # Update DB-Status zu 'work_ready'
+        # → PiTop 2 speichert Daten und wartet auf nächsten Break
+        self._update_break_status('work_ready')
+        
+        # Discord: Break vorbei, zurück zur Arbeit
+        self.notify.send_break_finished()
+        
+        # Zurück zu IDLE (User kann Button 1 drücken zum weitermachen)
+        self.state = "IDLE"
+        
+        print("✅ Bereit für nächste Arbeitsphase!")
+        print("👉 Drücke Button 1 zum Weitermachen\n")
+    
+    # ===== SESSION BEENDEN =====
+    
+    def _end_session(self):
+        """🛑 Ganze Lerneinheit beendet"""
+        
+        print("\n" + "="*60)
+        print("🛑 SESSION BEENDET")
+        print("="*60)
+        
+        self.state = "DONE"
+        
+        # Timer stoppen
+        self.timer.stop_event.set()
+        self.timer.is_running = False
+        
+        # UI Feedback
+        self.led.off()
+        self.buzzer.long_beep(2.0)
+        
+        # Statistiken aus Services
+        session_stats = self.timer.get_session_stats()
+        
+        # Report aus DB holen
+        report_data = self.db.get_session_report_data(self.session_id)
+        
+        # Session in DB als beendet markieren
+        self.db.end_session(
+            self.session_id,
+            session_stats['total_work_time'],
+            session_stats['total_break_time']
+        )
+        
+        # Report ausgeben
+        if report_data:
+            self.notify.print_terminal_report(report_data)
+            self.notify.send_session_report(report_data)
+        
+        # Reset
+        self.session_id = None
+        self.timer.reset_session_stats()
+        self.timer.reset()
+        
+        print("\n✅ Ready für neue Session!\n")
+    
+    # ===== CO2 MONITORING =====
+    
+    def _monitor_co2(self):
+        """🌡️ Überwacht CO2 und triggert Alarme"""
+        
+        alarm_status = self.co2.get_alarm_status()
+        co2_level = self.co2.read()
+        tvoc_level = self.co2.tvoc_level
+        
+        # ===== CRITICAL (> 800 ppm) =====
+        if alarm_status == "critical":
+            if not self.co2_alarm_active:
+                print(f"\n🚨 KRITISCHE CO2-WERTE: {co2_level} ppm")
+                
+                # LED: Schnelles Rot blinken
+                self.led.blink(0.1, 0.1)
+                
+                # Buzzer: Doppelbeep
+                self.buzzer.co2_alarm()
+                
+                # Discord
+                self.notify.send_co2_alert(co2_level, tvoc_level, is_critical=True)
+                
+                # DB Log
+                self.db.log_co2(self.session_id, co2_level, tvoc_level, 
+                               is_alarm=True, alarm_type="critical")
+                
+                self.co2_alarm_active = True
+                self.last_co2_warning = datetime.now()
+        
+        # ===== WARNING (600-800 ppm) =====
+        elif alarm_status == "warning":
+            if not self.co2_alarm_active or \
+               (self.last_co2_warning and 
+                (datetime.now() - self.last_co2_warning).seconds > 300):
+                
+                print(f"\n⚠️  WARNUNG CO2-WERTE: {co2_level} ppm")
+                
+                # LED: An (Gelb/Orange)
+                self.led.on()
+                
+                # Discord (kein Ping)
+                if (self.last_co2_warning is None or 
+                    (datetime.now() - self.last_co2_warning).seconds > 300):
+                    self.notify.send_co2_alert(co2_level, tvoc_level, is_critical=False)
+                
+                # DB Log
+                self.db.log_co2(self.session_id, co2_level, tvoc_level,
+                               is_alarm=True, alarm_type="warning")
+                
+                self.co2_alarm_active = True
+                self.last_co2_warning = datetime.now()
+        
+        # ===== OK (< 600 ppm) =====
         else:
-            print("   - Benachrichtigungen deaktiviert")
-        print("="*60)
-        print("\n👉 Drücke STRG+C zum Beenden\n")
+            if self.co2_alarm_active:
+                print(f"✅ CO2 normal: {co2_level} ppm")
+                self.co2_alarm_active = False
+                
+                # LED aus (wenn nicht gerade arbeitet)
+                if self.state == "IDLE":
+                    self.led.off()
+                elif self.state == "WORKING":
+                    self.led.on()
+                elif self.state == "BREAK":
+                    self.led.blink(0.5, 0.5)
+            
+            # Normale Messung loggen
+            if self.session_id and self.state in ["WORKING", "BREAK"]:
+                self.db.log_co2(self.session_id, co2_level, tvoc_level,
+                               is_alarm=False, alarm_type=None)
     
-    def stop(self):
-        """Cleanup"""
-        print("\n\n🛑 Stoppe PiTop 1...")
+    # ===== MAIN LOOP =====
+    
+    def run(self):
+        """Hauptschleife"""
         
-        if self.session_active:
-            self._end_session()
+        print("✅ System bereit!")
+        print(f"📱 User: {config.USER_NAME}")
+        print(f"📡 Device: {config.DEVICE_ID}")
+        print(f"💾 Supabase: {'✅' if self.db.client else '❌'}")
+        print(f"🤖 Discord: {'✅' if self.notify.is_enabled else '❌'}")
+        print(f"👣 Schrittzähler: ❌ (läuft auf PiTop 2)")
         
-        self.co2_sensor.stop_monitoring()
-        self.button1.cleanup()
-        self.button2.cleanup()
-        self.buzzer.cleanup()
-        self.led.cleanup()
+        print("\n🎯 KONTROLLEN:")
+        print("  🔘 Button 1 kurz  → Lernphase starten")
+        print("  🔘 Button 2 kurz  → Pause starten (während Lernen)")
+        print("  🔘 Button 1 lang  → Session beenden")
+        print("  🔘 Button 1+2 2x  → Letzte Aktion stornieren")
+        
+        print("\n📊 STATE:")
+        print(f"  Status: {self.state}")
+        
+        print("\n🔗 VERBINDUNGEN:")
+        print("  PiTop 1 ↔ PiTop 2: Über Supabase DB")
+        print("  PiTop 1 → Discord: Push-Benachrichtigungen")
+        print("  PiTop 2 → Discord: Break-Statistiken")
+        
+        print("\n" + "="*60)
+        print("👉 Starte eine Lernphase mit Button 1!\n")
+        
+        try:
+            while True:
+                # CO2 überwachen (alle 5 Sekunden)
+                if self.state in ["WORKING", "BREAK"]:
+                    self._monitor_co2()
+                
+                sleep(5)
+        
+        except KeyboardInterrupt:
+            self._cleanup()
+    
+    def _cleanup(self):
+        """Cleanup beim Beenden"""
+        print("\n\n🛑 Programm beendet")
+        
+        if self.state != "IDLE":
+            print("⚠️  Session nicht ordnungsgemäß beendet!")
+        
+        self.led.off()
+        self.buzzer.off()
+        self.timer.stop_event.set()
         
         print("✅ Cleanup abgeschlossen\n")
 
+
 def signal_handler(sig, frame):
-    pitop1.stop()
+    """STRG+C Handler"""
+    if 'session' in globals():
+        session._cleanup()
     sys.exit(0)
 
+
 if __name__ == "__main__":
-    if not config.validate_config():
-        sys.exit(1)
-    
-    pitop1 = PiTop1WorkStation()
+    session = LearningSession()
     signal.signal(signal.SIGINT, signal_handler)
-    
-    pitop1.start()
-    
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pitop1.stop()
+    session.run()
