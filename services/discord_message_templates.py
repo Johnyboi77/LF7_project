@@ -1,117 +1,55 @@
+#!/usr/bin/env python3
 """
-Discord Message Templates
-Alle Nachrichten-Vorlagen zentral verwaltbar
+Discord Message Templates - Reduzierte Benachrichtigungen
+Nur essenzielle Nachrichten: Start → Break Stats → Final Report
 """
 
 class MessageTemplates:
     """Alle Discord-Nachrichts-Vorlagen"""
     
-    # ===== SESSION LIFECYCLE =====
+    # ===== 1. SESSION START =====
     
     @staticmethod
     def session_start(user_name):
+        """Wird beim Start der Lerneinheit versendet"""
         return {
             "title": f"👋 Hey {user_name}!",
             "description": (
-                f"**Deine Lerneinheit wurde gestartet!** 📚\n\n"
-                f"🟦 **30 Minuten Arbeitszeit**\n"
-                f"Konzentriert arbeiten, du schaffst das! 💪\n\n"
-                f"⏱️ Der Timer läuft..."
+                f"**Deine Lerneinheit wurde gestartet** 📚\n\n"
+                f"⏱️ *30 Minuten ab jetzt! **\n"
             ),
-            "color": 5763719,
+            "color": 5763719,  # Blau
             "emoji": "📚"
         }
     
-    @staticmethod
-    def work_finished(user_name):
-        return {
-            "title": f"⏰ Hey {user_name}!",
-            "description": (
-                f"**Deine 30-Minuten Lernphase ist vorbei!** 🎉\n\n"
-                f"⏸️ **Zeit für eine 10-minütige Pause**\n\n"
-                f"**Empfohlene Aktivitäten:**\n"
-                f"🚶‍♀️ Kurzer Spaziergang\n"
-                f"🪟 Fenster öffnen & lüften\n"
-                f"💧 Wasser trinken\n"
-                f"👉 Drücke **Button 2** um Pause zu starten"
-            ),
-            "color": 3447003,
-            "emoji": "⏰"
-        }
-    
-    @staticmethod
-    def break_finished(user_name):
-        return {
-            "title": f"🔔 Pause vorbei!",
-            "description": (
-                f"Hallo {user_name}! ☕\n\n"
-                f"**Deine 10-Minuten Pause ist abgelaufen!**\n\n"
-                f"🚀 Bereit für die nächste Lernphase?\n\n"
-                f"👉 Drücke **Button 1** um weiterzumachen"
-            ),
-            "color": 3066993,
-            "emoji": "☕"
-        }
+    # ===== 2. BREAK STATS (nach jeder Pause) =====
     
     @staticmethod
     def break_stats(user_name, pause_number, steps, calories, distance):
+        """Wird nach JEDER Pause versendet (zusammenfassend)"""
         return {
-            "title": f"📊 Pause #{pause_number} Statistik",
+            "title": f"☕ Pause #{pause_number} beendet!",
             "description": (
                 f"Super, {user_name}! 🏃‍♀️\n\n"
                 f"**Bewegung in der Pause:**\n"
                 f"👣 Schritte: **{steps:,}**\n"
-                f"🔥 Kalorien: **~{calories} kcal**\n"
-                f"📏 Distanz: **~{distance}m**\n\n"
-                f"{MessageTemplates._get_motivation(steps)}"
+                f"🔥 Verbrannte Kalorien: **~{calories} kcal**\n"
+                f"📏 Zurückgelegte Distanz: **~{distance}m**\n\n"
+                f"{MessageTemplates._get_motivation(steps)}\n\n"
+                f"🚀 Bereit für die nächste Lernphase?\n"
+                f"👉 Drücke Button 1 zum Weitermachen!"
+                f"👉 Halte Button 1 zum Beenden deiner Session!"
             ),
-            "color": 10181046,
+            "color": 10181046,  # Lila
             "emoji": "👣"
         }
     
-    # ===== CO2 ALERTS =====
-    
-    @staticmethod
-    def co2_warning(user_name, co2_level, tvoc_level):
-        return {
-            "title": f"⚠️ Luftqualität warnen",
-            "description": (
-                f"Hey {user_name}! 🌡️\n\n"
-                f"**Die Luftqualität verschlechtert sich!**\n\n"
-                f"📊 **Aktuelle Werte:**\n"
-                f"• eCO2: **{co2_level} ppm** ⚠️\n"
-                f"• TVOC: **{tvoc_level} ppb**\n\n"
-                f"💡 Bitte bald lüften!\n"
-                f"Bessere Luftqualität = bessere Konzentration 🧠"
-            ),
-            "color": 16776960,  # Gelb
-            "emoji": "⚠️"
-        }
-    
-    @staticmethod
-    def co2_critical(user_name, co2_level, tvoc_level):
-        return {
-            "title": f"🚨 KRITISCHE LUFTQUALITÄT!",
-            "description": (
-                f"{user_name}, Achtung! 🚨\n\n"
-                f"**Die Luftqualität ist kritisch!**\n\n"
-                f"📊 **Aktuelle Werte:**\n"
-                f"• eCO2: **{co2_level} ppm** 🚨\n"
-                f"• TVOC: **{tvoc_level} ppb**\n\n"
-                f"🚪 **SOFORT LÜFTEN!**\n"
-                f"Zu viel CO2 beeinträchtigt deine Konzentration ernsthaft.\n\n"
-                f"🔴 Rote LED blinkt | Buzzer piept"
-            ),
-            "color": 15158332,  # Rot
-            "emoji": "🚨"
-        }
-    
-    # ===== SESSION REPORT =====
+    # ===== 3. SESSION REPORT (Finaler Report) =====
     
     @staticmethod
     def session_report(user_name, stats):
         """
-        Erstellt ausführlichen Session-Report
+        Finaler Report am Ende der Lerneinheit
         
         Args:
             user_name: Benutzer-Name
@@ -173,7 +111,7 @@ class MessageTemplates:
             f"📊 Ø Durchschnitt: **{avg_co2} ppm**\n"
             f"📉 Minimum: **{min_co2} ppm**\n"
             f"📈 Maximum: **{max_co2} ppm**\n"
-            f"⚠️ Alarm-Perioden: **{alarm_count}x**\n\n"
+            f"⚠️ Co2 Alarm: **{alarm_count}x**\n\n"
             
             f"**👣 BEWEGUNG IN PAUSEN**\n"
             f"🚶 Schritte: **{steps:,}**\n"
@@ -186,9 +124,9 @@ class MessageTemplates:
         )
         
         return {
-            "title": f"📊 Session-Report für {user_name}",
+            "title": f"📊 Session-Report für {user_name}\n",
             "description": description,
-            "color": 10181046,
+            "color": 10181046,  # Lila
             "emoji": "📊",
             "fields": [
                 {
@@ -199,17 +137,37 @@ class MessageTemplates:
             ]
         }
     
+    # ===== CO2 ALERTS (Optional - nur bei kritischen Werten) =====
+    
+    @staticmethod
+    def co2_critical(user_name, co2_level, tvoc_level):
+        """Nur bei KRITISCHEN CO2-Werten (> 800 ppm)"""
+        return {
+            "title": f"🚨 KRITISCHE LUFTQUALITÄT!",
+            "description": (
+                f"{user_name}, Achtung! 🚨\n\n"
+                f"**Die Luftqualität ist kritisch!**\n\n"
+                f"📊 **Aktuelle Werte:**\n"
+                f"• eCO2: **{co2_level} ppm** 🚨\n"
+                f"• TVOC: **{tvoc_level} ppb**\n\n"
+                f"🚪 **SOFORT LÜFTEN!**\n"
+                f"Zu viel CO2 beeinträchtigt deine Konzentration.\n\n"
+            ),
+            "color": 15158332,  # Rot
+            "emoji": "🚨"
+        }
+    
     # ===== HILFSFUNKTIONEN =====
     
     @staticmethod
     def _get_motivation(steps):
         """Motivierende Nachricht basierend auf Schritten"""
         if steps >= 1000:
-            return "🏆 Wow, super aktive Pause!"
+            return "🏆 Wow, das waren super aktive Pausen!"
         elif steps >= 500:
-            return "💪 Gute Bewegung!"
+            return "💪 Schön bewegt!"
         elif steps >= 200:
-            return "👍 Schön bewegt!"
+            return "👍 Weiter so!"
         elif steps > 0:
             return "🚶 Jeder Schritt zählt!"
         else:

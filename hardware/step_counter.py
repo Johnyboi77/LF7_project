@@ -1,30 +1,49 @@
+#!/usr/bin/env python3
 """
-Step Counter (BMA400)
+Step Counter (BMA400 via I2C)
+I2C Address: 0x14 (automatisch)
 """
 
-import config
-from hardware import StepCounter as HardwareSteps, IS_PITOP
+from pitop.pma import BMA400
+
 
 class StepCounter:
     def __init__(self):
-        self.sensor = HardwareSteps()
-        print(f"✅ Step Counter initialisiert ({'REAL' if IS_PITOP else 'MOCK'})")
+        # BMA400 Accelerometer über I2C (Adresse 0x14 automatisch)
+        self.sensor = BMA400()
+        self._steps = 0
+        print(f"✅ Step Counter (BMA400) auf I2C initialisiert")
     
     def start(self):
-        self.sensor.start_counting()
+        """Step Counting starten"""
+        self.sensor.enable_step_counter()
+        print("🚶 Step Counter gestartet")
     
     def stop(self):
-        return self.sensor.stop_counting()
+        """
+        Step Counting stoppen und Schritte zurückgeben
+        Returns:
+            int: Anzahl Schritte
+        """
+        steps = self.current_steps
+        self.sensor.disable_step_counter()
+        print(f"⏹️ Step Counter gestoppt: {steps} Schritte")
+        return steps
     
     def read(self):
-        return self.sensor.current_steps
+        """Aktuelle Schritte lesen"""
+        return self.sensor.step_count
     
     def reset(self):
-        self.sensor.steps = 0
+        """Schrittzähler zurücksetzen"""
+        self.sensor.reset_step_counter()
+        print("🔄 Step Counter zurückgesetzt")
     
     def get_count(self):
-        return self.sensor.current_steps
+        """Aktuelle Schritte abrufen"""
+        return self.sensor.step_count
     
     @property
     def current_steps(self):
-        return self.sensor.current_steps
+        """Property: Aktuelle Schrittanzahl"""
+        return self.sensor.step_count

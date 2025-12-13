@@ -1,36 +1,50 @@
+#!/usr/bin/env python3
 """
-Buzzer für Signale
+Buzzer für Signale und Alarme
+PORT: D3 (HARDCODED)
 """
 
 import threading
 from time import sleep
+from pitop import Buzzer as PitopBuzzer
 import config
-from hardware import Buzzer as HardwareBuzzer, IS_PITOP
+
 
 class Buzzer:
-    def __init__(self, pin_name=None):
-        self.pin_name = pin_name or config.BUZZER_PORT
-        self.buzzer = HardwareBuzzer(self.pin_name)
+    def __init__(self):
+        self.pin_name = "D3"  # 🔒 HARDCODED
+        self.buzzer = PitopBuzzer(self.pin_name)
         self.beep_thread = None
         
-        print(f"✅ Buzzer [{self.pin_name}] initialisiert ({'REAL' if IS_PITOP else 'MOCK'})")
+        print(f"✅ Buzzer auf {self.pin_name} initialisiert")
     
     def on(self):
+        """Buzzer dauerhaft einschalten"""
         self.buzzer.on()
     
     def off(self):
+        """Buzzer ausschalten"""
         self.buzzer.off()
     
     def beep(self, duration=None):
+        """Kurzer Beep"""
         duration = duration or config.BUZZER_CO2_DURATION
-        self.buzzer.beep(duration)
+        self.buzzer.on()
+        sleep(duration)
+        self.buzzer.off()
     
     def long_beep(self, duration=None):
+        """Langer Beep für Timer"""
         duration = duration or config.BUZZER_TIMER_DURATION
-        self.buzzer.beep(duration)
+        self.buzzer.on()
+        sleep(duration)
+        self.buzzer.off()
     
     def double_beep(self):
-        self.buzzer.double_beep()
+        """Doppel-Beep Pattern"""
+        self.beep(0.1)
+        sleep(0.1)
+        self.beep(0.1)
     
     def co2_alarm(self):
         """CO2 Alarm Pattern (asynchron)"""
@@ -38,9 +52,11 @@ class Buzzer:
         thread.start()
     
     def _co2_pattern(self):
+        """CO2 Alarm: Mehrfach Beep"""
         for _ in range(config.BUZZER_CO2_REPETITIONS):
             self.beep(config.BUZZER_CO2_DURATION)
             sleep(config.BUZZER_CO2_INTERVAL)
     
     def timer_alarm(self):
+        """Timer Ende: Langer Beep"""
         self.long_beep(config.BUZZER_TIMER_DURATION)

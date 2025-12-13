@@ -11,7 +11,7 @@ from time import sleep
 from datetime import datetime
 
 import config
-from hardware.button1 import Button
+from hardware.button1 import Button1
 from hardware.button2 import Button2
 from hardware.led import LED
 from hardware.buzzer import Buzzer
@@ -27,13 +27,12 @@ class LearningSession:
         print("🎓 LEARNING ASSISTANT - pi-top 1")
         print("="*60)
         
-        # Hardware (OHNE Schrittzähler)
-        self.button1 = Button("D0")
-        self.button2 = Button2("D1")
-        self.led = LED("D2")
-        self.buzzer = Buzzer("D3")
-        self.co2 = CO2Sensor() 
-        # ggf I2C Address 0x5A hardcoded -> übergabe passiert aber eigentlich automatisch durch hardware/Co2_sensor.py
+        # Hardware (Ports hardcoded in Hardware-Klassen)
+        self.button1 = Button1()      # D0 intern
+        self.button2 = Button2()      # D1 intern
+        self.led = LED()              # D2 intern
+        self.buzzer = Buzzer()        # D3 intern
+        self.co2 = CO2Sensor()        # I2C 0x5A automatisch
         
         # Services
         self.timer = TimerService(self._get_db(), NotificationService())
@@ -41,7 +40,7 @@ class LearningSession:
         self.db = self._get_db()
         
         # State Machine
-        self.state = "IDLE"  # IDLE → WORKING → BREAK → WORKING → DONE
+        self.state = "IDLE"
         self.session_id = None
         self.co2_alarm_active = False
         self.last_co2_warning = None

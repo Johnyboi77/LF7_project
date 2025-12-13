@@ -1,15 +1,20 @@
+#!/usr/bin/env python3
 """
 Button 2 - Pause Control
+PORT: D1 (HARDCODED)
+- Short Press: Start Break
+- Double Click: Emergency Stop
 """
 
 import threading
-from time import time, sleep
+from time import time
+from pitop import Button
 import config
-from hardware import Button as HardwareButton, IS_PITOP
+
 
 class Button2:
-    def __init__(self, pin_name=None):
-        self.pin_name = pin_name or config.BUTTON2_PORT
+    def __init__(self):
+        self.pin_name = "D1"  # 🔒 HARDCODED
         self.press_start = None
         self.last_press_time = 0
         self.short_press_cb = None
@@ -17,13 +22,12 @@ class Button2:
         self.click_count = 0
         self.double_click_timer = None
         
-        self.button = HardwareButton(self.pin_name)
+        # Direkt PiTop Button erstellen
+        self.button = Button(self.pin_name)
+        self.button.when_pressed = self._on_press
+        self.button.when_released = self._on_release
         
-        if IS_PITOP and hasattr(self.button, 'when_pressed'):
-            self.button.when_pressed = self._on_press
-            self.button.when_released = self._on_release
-        
-        print(f"✅ Button2 [{self.pin_name}] initialisiert ({'REAL' if IS_PITOP else 'MOCK'})")
+        print(f"✅ Button2 auf {self.pin_name} initialisiert")
     
     def _on_press(self):
         self.press_start = time()
@@ -68,7 +72,3 @@ class Button2:
     
     def on_double_click(self, callback):
         self.double_click_cb = callback
-    
-    def simulate_short_press(self):
-        if hasattr(self.button, 'simulate_short_press'):
-            self.button.simulate_short_press()

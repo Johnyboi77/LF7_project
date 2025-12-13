@@ -51,19 +51,13 @@ Step Counter (SKU: 101020583)
     Misst: Schritte, Aktivität, Neigung
 
 # Hardware-Checklist
-PiTop 1 (32 Jonas):
-IP: 192.168.0.53 
-
- Button 1 → D0
- Button 2 → D1
- LED (Rot) → D2
- Buzzer → D3
- CO2 Sensor → I2C (should be pre-connected) ✅
-
-PiTop 2:
-IP: 
-
- Step Counter → I2C (should be pre-connected) ✅
+Komponente	   Port	Klasse	            PiTop
+Button         1	   D0	Button1()	         1
+Button         2	   D1	Button2()	         1
+LED (Rot)	   D2	   LED()	                  1
+Buzzer	      D3	   Buzzer()    	         1
+CO2 Sensor	   I2C   0x5A	CO2Sensor()	      1
+Step Counter	I2C   0x14	StepCounter()	   2
 
 # Baum anzeigen
 cd /mnt/c/Users/knigh/LF7_project && tree -L 3 -I 'node_modules|.next|.git|dist|build'
