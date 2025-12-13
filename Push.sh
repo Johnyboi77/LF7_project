@@ -3,7 +3,7 @@
 
 REPO_PATH="/mnt/c/Users/knigh/LF7_project"
 REMOTE_URL="https://github.com/Johnyboi77/LF7_project.git"
-BRANCH="dev"
+BRANCH="main"
 
 # TO change branch
 # -->     git checkout -b dev
