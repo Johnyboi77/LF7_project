@@ -1,170 +1,100 @@
-Projekt
->>Effektiver Lernen
+Effektiver Lernen - Learning Assistant
+Ein intelligentes Lernsystem mit zwei PiTop 4 Geräten, das konzentriertes Arbeiten durch strukturierte Lern- und Pausenphasen fördert.
 
-# Projektablauf
-1. 🎮 Button 1 kurz drücken
-   → 🎓 Work Session startet automatisch
-   → 📱 Discord: "Hey Alicia! Deine Lerneinheit wurde gestartet!"
-   → 🟦 30min Arbeitszeit läuft (timer)
+🎯 Projektübersicht
+Das Learning Assistant System nutzt zwei PiTop 4 Computer, um optimale Lernbedingungen zu schaffen:
 
-2. ⏰ Nach 30 Min
-   → 🔊 Langer Piepton mit Buzzer
-   → 📱 Discord: "Deine 30-Minuten Lernphase ist vorbei!"
-   → Schrittzähler startet mit dem Erfassen von Schritten um in der Pause ALLE Schritte aufzunehmen statt ggf nur von 9:57min
+PiTop 1 (Arbeitsplatz): Timer-Steuerung, Luftqualitäts-Überwachung, Button-Kontrolle
+PiTop 2 (Pausenzone): Bewegungstracking während Pausen
+Das System motiviert durch strukturierte 30-Min-Lernphasen mit 10-Min-Aktivpausen und dokumentiert alle Daten für spätere Auswertung.
 
-3. 🎮 Button 2 kurz drücken
-   → 🟩 10min Pause läuft (timer)
+🚀 Funktionsweise
+📋 Kompletter Ablauf
+text
+┌─────────────────────────────────────────────────┐
+│  1️⃣  SESSION START                              │
+├─────────────────────────────────────────────────┤
+│  👉 Button 1 kurz drücken                       │
+│  ✅ Arbeitsphase startet (30 Min)               │
+│  📱 Discord: "Hey Alicia! Lerneinheit gestartet"│
+│  🟦 Timer läuft, LED leuchtet                   │
+│  🌡️ CO2-Überwachung aktiv                       │
+└─────────────────────────────────────────────────┘
+              ⬇️  [30 Minuten vergehen]
+┌─────────────────────────────────────────────────┐
+│  2️⃣  ARBEITSPHASE BEENDET                       │
+├─────────────────────────────────────────────────┤
+│  ⏰ Timer abgelaufen                            │
+│  🔊 Langer Piepton (Buzzer)                     │
+│  💡 Optionale Pause möglich                     │
+└─────────────────────────────────────────────────┘
+              ⬇️
+┌─────────────────────────────────────────────────┐
+│  3️⃣  PAUSE STARTEN                              │
+├─────────────────────────────────────────────────┤
+│  👉 Button 2 kurz drücken                       │
+│  ✅ Pausenphase startet (10 Min)                │
+│  🟩 LED blinkt, Timer läuft                     │
+│  🚶 PiTop 2: Schrittzähler aktiviert            │
+│  📊 Datenbank: Status = 'break'                 │
+└─────────────────────────────────────────────────┘
+              ⬇️  [10 Minuten vergehen]
+┌─────────────────────────────────────────────────┐
+│  4️⃣  PAUSE BEENDET                              │
+├─────────────────────────────────────────────────┤
+│  ⏰ Pause abgelaufen                            │
+│  📱 Discord: "1.247 Schritte, 62 kcal, 935m"    │
+│  💾 Daten in Supabase gespeichert               │
+│  🔄 Bereit für nächste Arbeitsphase             │
+└─────────────────────────────────────────────────┘
+              ⬇️
+┌─────────────────────────────────────────────────┐
+│  5️⃣  WEITERE ZYKLEN                             │
+├─────────────────────────────────────────────────┤
+│  🔁 Unbegrenzt viele Lern-/Pausenphasen         │
+│  📈 Alle Daten werden dokumentiert              │
+└─────────────────────────────────────────────────┘
+              ⬇️
+┌─────────────────────────────────────────────────┐
+│  6️⃣  SESSION BEENDEN                            │
+├─────────────────────────────────────────────────┤
+│  👉 Button 1 für 5+ Sekunden halten             │
+│  🛑 Session wird beendet                        │
+│  📊 Kompletter Report wird erstellt:            │
+│     • Gesamte Lernzeit: 90 Min                  │
+│     • Gesamte Pausenzeit: 30 Min                │
+│     • Anzahl Pausen: 3                          │
+│     • Ø CO2: 542 ppm (💚 Ausgezeichnet)         │
+│     • Schritte gesamt: 3.741                    │
+│     • Kalorien: 187 kcal                        │
+│     • Distanz: 2,8 km                           │
+│  📱 Report zu Discord + Terminal                │
+│  🎉 "Tolle Arbeit, Alicia!"                     │
+└─────────────────────────────────────────────────┘
+🎮 Steuerung
+Aktion	Funktion
+Button 1 kurz	🎓 Arbeitsphase starten/fortsetzen
+Button 1 lang (5s)	🛑 Session beenden (jederzeit)
+Button 2 kurz	☕ Pause starten
+Button 1+2 doppelt	↩️ Letzte Aktion stornieren
+🌡️ CO2-Überwachung (Luftqualität)
+Das System überwacht kontinuierlich die Luftqualität und warnt bei schlechten Bedingungen:
 
-4. ⏰ Nach 10 Min
-   → 📱 Discord Push Nachricht: "Deine Pause ist abgelaufen!"
-   → Neuer Worktimer kann mit erneutem betätigen des buttons gestartet werden
-   → Schrittzähler stoppt erfassung und pusht zu datenbanktable in supabase
+CO2-Level	Status	Reaktion
+< 600 ppm	💚 Ausgezeichnet	Keine Aktion
+600-800 ppm	💛 Warning	🔴 LED leuchtet
+> 800 ppm	🚨 Kritisch	🔴 LED blinkt + 🔊 Doppel-Beep + 📱 Discord-Warnung
+💡 Tipp: Gute Luftqualität = bessere Konzentration! Regelmäßig lüften.
 
-5. ... weitere Lern-/Pausezyklen sind unbegrenzt möglich...
-
-6. 🎮 Button 1 für 5+ Sekunden halten
-   → 🛑 Session beendet (jederzeit möglich)
-   → 📊 Report im Terminal + Discord:
-      "Session-Report für Alicia
-       Lernzeit: 90 Min
-       Pausenzeit: 30 Min
-       eCO2 Durchschnitt: 542 ppm
-       Schritte: 1.247
-       Tolle Arbeit! 🎉"
-
-7. Button 1 und 2 2x drücken
-   → Letzte Eingabe über den Knopf wird beendet/storniert für Versehentliche betätigung
-
-8. Zusätzlich überwacht ein CO2 Sensor den Sauerstoffgehalt und lässt bei unterschreitung der 1. grenze eine rote led leuchten / bei unterschreitung der zweiten Grenzen -> Ton über button (doppel biep)
- und Push NAchricht sinngemäß: Lüfte mal!
-
-# Vermutlich werden diese besonderen Sensoren verwendet
-VOC and eCO2 Gas Sensor (SKU: 101020512)
-    Chip: Wahrscheinlich SGP30 oder CCS811
-    Schnittstelle: I2C
-    Misst: VOC (Volatile Organic Compounds) + eCO2 (equivalent CO2)
-    --> Wichtig: Dies ist ein eCO2-Sensor (berechnet aus VOC), kein echter CO2-Sensor wie der SCD30!
-
-Step Counter (SKU: 101020583)
-    Chip: Wahrscheinlich BMA400 (3-Achsen Beschleunigungssensor)
-    Schnittstelle: I2C
-    Misst: Schritte, Aktivität, Neigung
-
-# Hardware-Checklist
-Komponente	   Port	Klasse	            PiTop
-Button         1	   D0	Button1()	         1
-Button         2	   D1	Button2()	         1
-LED (Rot)	   D2	   LED()	                  1
-Buzzer	      D3	   Buzzer()    	         1
-CO2 Sensor	   I2C   0x5A	CO2Sensor()	      1
-Step Counter	I2C   0x14	StepCounter()	   2
-
-# Baum anzeigen
-cd /mnt/c/Users/knigh/LF7_project && tree -L 3 -I 'node_modules|.next|.git|dist|build'
-
-# Wichtig für sämtliche lokalen Installationen
-
-1. In Projektverzeichnis gehen
-
-cd /mnt/c/Users/knigh/LF7_project
-
-2. Aktiviere das Virtual Environment (wichtig für INstallationen)
-
-source ~/grove_env/bin/activate
-
-3. Mit USB Stick oder MicroSD den PiTop grundsätzlich booten nach reset
- (weil er auch von anderen Gruppen genutzt wird)
-
-4. In einem Terminal mit PiTop4 verbinden & vorhandene Dateien löschen
-
-ssh pi@192.168.0.53 
-# pi-top
-
-# Falls Projekt vorhanden (alte Dateien löschen)
-rm -rf ~/LF7_project
-
-# und andere Projekte anderer Gruppen!
-
-4.3 Altes Archiv löschen (laptop)
-
-cd /mnt/c/Users/knigh
-rm -f LF7_project.tar.gz
-echo "✅ Altes Archiv gelöscht"
-
-4.5 Zweites Terminal öffnen und dort ein Archiv des Projekts, exklusive unnötiger packages erstellen
-
-# Am Besten alte Datei löschen und neue erstellen LF7_project.tar.gz  --> Ist derzeit bereits erstellt in knigh/
-
-cd /mnt/c/Users/knigh
-
-tar -czf LF7_project.tar.gz \
-  --exclude='LF7_project/.git' \
-  --exclude='LF7_project/venv' \
-  --exclude='LF7_project/node_modules' \
-  LF7_project/
-
-5. Kopie übertragen auf PiTop / ggf vorher Archiv erstellen mit 4.5
-
-scp LF7_project.tar.gz pi@192.168.0.53:~/
-# pi-top
-
-# 5.5 ggf env extra übertragen
-
-# cd /mnt/c/Users/knigh/LF7_project
-
-# Nur die .env-Dateien übertragen
-# scp .env.pitop1 .env.pitop2 pi@192.168.0.53:~/LF7_project/
-
-6. Upload Prüfen
-
-ls -la 
-
-8. Auf dem Pi entpacken und Archivdatei löschen & In richtiges Verzeichnis gehen
-
-tar -xzf LF7_project.tar.gz
-cd ~/LF7_project
-
-7. Archiv auf PI löschen
-
-rm LF7_project.tar.gz
-
-8. Venv auf PiTop erstellen
-
-python3 -m venv venv
-source venv/bin/activate
-
-#Ausgabe müsste jett (venv) Pfad sein
-
-9. Python Pakete installieren
-
-pip install -r requirements.txt
-
-10. Testen / Ausführen
-
-python3 ...
-
-# ggf python3 main_pitop1.py --device=pitop1
-# Troubleshooting 
-
-# ggf zusammen ausführen
-ping 192.168.0.53 
-ssh pi@192.168.0.53
-
-ls -la
-
-exit 
-# um Pitop sicher zu verlassen, ansonsten muss er neugestartet werden weil Port 22 belegt ist
-
-
-### Hinzufügen in alle Files wie LED ect - Can hat Tipp gegeben
-
-from pitop import UltrasonicSensor, LED, Buzzer
-from pitop.miniscreen import Miniscreen
-
--->richtige Bibkliothek verwenden!!
-
-## Fertiges System verwenden
-
-2 ssh terminal windows mit je dem einen pitop
-jeweil das jeweilige main script ausführen
---> Start both klappt nciht 
+🔧 Technische Details
+🖥️ Hardware-Setup
+PiTop 1 - Arbeitsplatz
+Komponente	Port	Funktion
+Button 1	D0	Work-Timer starten/stoppen
+Button 2	D1	Pause starten
+LED (Rot)	D2	Status-Anzeige (An/Aus/Blink)
+Buzzer	D3	Akustische Signale
+CO2 Sensor (SGP30)	I2C 0x5A	Luftqualität (eCO2 + TVOC)
+PiTop 2 - Pausenzone
+Komponente	Port	Funktion
+Step Counter (BMA400)	I2C 0x14	Schritte, Kalorien, Distanz

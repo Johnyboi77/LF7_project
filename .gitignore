@@ -1,5 +1,6 @@
 ./Push.sh
 .env
+Info.py
 
 node_modules/
 pycache/
