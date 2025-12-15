@@ -1,4 +1,5 @@
 Effektiver Lernen - Learning Assistant
+
 Ein intelligentes Lernsystem mit zwei PiTop 4 Geräten, das konzentriertes Arbeiten durch strukturierte Lern- und Pausenphasen fördert.
 
 🎯 Projektübersicht
@@ -98,3 +99,4 @@ CO2 Sensor (SGP30)	I2C 0x5A	Luftqualität (eCO2 + TVOC)
 PiTop 2 - Pausenzone
 Komponente	Port	Funktion
 Step Counter (BMA400)	I2C 0x14	Schritte, Kalorien, Distanz
+
