@@ -1,5 +1,4 @@
 # 1. Ultra-robuste Co2_sensor.py
-cat > ~/LF7_project/hardware/Co2_sensor.py << 'EOF'
 #!/usr/bin/env python3
 """CO2 Sensor (SGP30) - Ultra-robust"""
 import config
