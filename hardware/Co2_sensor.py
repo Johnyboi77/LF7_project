@@ -1,11 +1,9 @@
+# 1. Ultra-robuste Co2_sensor.py
+cat > ~/LF7_project/hardware/Co2_sensor.py << 'EOF'
 #!/usr/bin/env python3
-"""
-CO2 Sensor (SGP30 via I2C)
-Verwendet adafruit_sgp30 (system-weit verfügbar)
-I2C Address: 0x58
-"""
-
+"""CO2 Sensor (SGP30) - Ultra-robust"""
 import config
+import time
 
 try:
     import board
@@ -13,61 +11,76 @@ try:
     SENSOR_AVAILABLE = True
 except ImportError:
     SENSOR_AVAILABLE = False
-    print("⚠️  adafruit_sgp30 nicht verfügbar - Dummy-Modus")
-
 
 class CO2Sensor:
     def __init__(self):
-        """Initialisiert CO2 Sensor"""
         self._co2_level = 400
         self._tvoc_level = 0
         self.sensor = None
+        self.errors = 0
+        self.last_good_read = time.time()
         
         if SENSOR_AVAILABLE:
             try:
                 i2c = board.I2C()
                 self.sensor = adafruit_sgp30.Adafruit_SGP30(i2c)
                 self.sensor.iaq_init()
+                time.sleep(1)
                 self.sensor.set_iaq_baseline(0x8973, 0x8AAE)
+                
+                # Erste Messung (kann fehlschlagen)
+                try:
+                    self._co2_level = self.sensor.eCO2
+                    self._tvoc_level = self.sensor.TVOC
+                except:
+                    pass
+                
                 print(f"✅ CO2 Sensor (SGP30) auf I2C initialisiert")
             except Exception as e:
-                print(f"⚠️  SGP30 Hardware nicht gefunden: {e}")
-                print(f"💡 Sensor läuft im Dummy-Modus")
+                print(f"⚠️  SGP30 Init-Fehler: {e} - Dummy-Modus")
                 self.sensor = None
+        else:
+            print(f"⚠️  adafruit_sgp30 nicht verfügbar - Dummy-Modus")
     
     def read(self):
-        """Liest eCO2 Wert in ppm"""
         if self.sensor is None:
             return self._co2_level
         
-        try:
-            self._co2_level = self.sensor.eCO2
-            self._tvoc_level = self.sensor.TVOC
-        except Exception as e:
-            print(f"⚠️  CO2 Read-Fehler: {e}")
+        if self.errors >= 10:
+            if self.sensor:
+                print(f"⚠️  CO2 Sensor deaktiviert (zu viele Fehler)")
+                self.sensor = None
+            return self._co2_level
+        
+        # Retry bis zu 3x
+        for attempt in range(3):
+            try:
+                self._co2_level = self.sensor.eCO2
+                self._tvoc_level = self.sensor.TVOC
+                self.errors = 0
+                self.last_good_read = time.time()
+                return self._co2_level
+            except:
+                if attempt < 2:
+                    time.sleep(0.1)
+                else:
+                    self.errors += 1
+                    if self.errors % 5 == 1:
+                        print(f"⚠️  CO2 Read-Fehler ({self.errors}/10)")
         
         return self._co2_level
     
     @property
     def co2_level(self):
-        """Aktueller CO2 Level in ppm"""
         self.read()
         return self._co2_level
     
     @property
     def tvoc_level(self):
-        """Total Volatile Organic Compounds (TVOC) in ppb"""
         return self._tvoc_level
     
     def get_alarm_status(self):
-        """
-        Gibt Alarm-Status zurück:
-        - 'ok': CO2 < WARNING_THRESHOLD
-        - 'warning': CO2 >= WARNING_THRESHOLD
-        - 'critical': CO2 >= CRITICAL_THRESHOLD
-        """
         level = self.co2_level
-        
         if level >= config.CO2_CRITICAL_THRESHOLD:
             return "critical"
         elif level >= config.CO2_WARNING_THRESHOLD:
