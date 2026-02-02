@@ -90,9 +90,4 @@ Testcommmands
 # Komplette Test-Suite (vor Präsentation!)
 python3 test_all.py
 
-# Discord-Benachrichtigungen testen
-python3 test_discord.py
-
-# Supabase-Verbindung testen
-python3 test_supabase.py
 

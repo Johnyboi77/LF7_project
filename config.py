@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Zentrale Konfiguration - Lädt automatisch .env.pitop1 oder .env.pitop2
-basierend auf dem Script-Namen
+basierend auf dem Script-Namen oder DEVICE_OVERRIDE
 """
 
 import os
@@ -10,36 +10,42 @@ from dotenv import load_dotenv
 
 # ===== .ENV LADEN =====
 def load_env_for_device():
-    """Lädt .env automatisch basierend auf Script-Namen"""
+    """Lädt .env automatisch basierend auf Script-Namen oder Override"""
     
-    # Script-Name extrahieren (z.B. "main_pitop1.py" → "pitop1")
-    script_name = os.path.basename(sys.argv[0])  # z.B. "main_pitop1.py"
+    # 1. PRIORITÄT: Environment Variable Override
+    if os.environ.get('DEVICE_OVERRIDE'):
+        device = os.environ.get('DEVICE_OVERRIDE')
+        print(f"✅ Device Override: {device}")
     
-    # Versuche Device-ID aus Script-Namen zu extrahieren
-    if 'pitop1' in script_name:
-        device = 'pitop1'
-    elif 'pitop2' in script_name:
-        device = 'pitop2'
     else:
-        # Fallback: Via Command-Line Argument
-        for arg in sys.argv:
-            if arg.startswith('--device='):
-                device = arg.split('=')[1]
-                break
+        # 2. Script-Name extrahieren (z.B. "main_pitop1.py" → "pitop1")
+        script_name = os.path.basename(sys.argv[0])
+        
+        if 'pitop1' in script_name:
+            device = 'pitop1'
+        elif 'pitop2' in script_name:
+            device = 'pitop2'
         else:
-            # Kein Device erkannt
-            print("❌ Konnte Device nicht erkennen!")
-            print(f"   Script-Name: {script_name}")
-            print("   Erwartet: main_pitop1.py oder main_pitop2.py")
-            print("   Oder nutze: --device=pitop1")
-            sys.exit(1)
+            # 3. Fallback: Via Command-Line Argument
+            for arg in sys.argv:
+                if arg.startswith('--device='):
+                    device = arg.split('=')[1]
+                    break
+            else:
+                # Kein Device erkannt
+                print("❌ Konnte Device nicht erkennen!")
+                print(f"   Script-Name: {script_name}")
+                print("   Erwartet: main_pitop1.py oder main_pitop2.py")
+                print("   Oder nutze: --device=pitop1")
+                print("   Oder setze: DEVICE_OVERRIDE=pitop1")
+                sys.exit(1)
     
     # .env File laden
     env_file = f'.env.{device}'
     
     if os.path.exists(env_file):
         load_dotenv(env_file)
-        print(f"✅ Loaded {env_file} (auto-detected from {script_name})")
+        print(f"✅ Loaded {env_file}")
         return device
     else:
         print(f"❌ {env_file} nicht gefunden!")
