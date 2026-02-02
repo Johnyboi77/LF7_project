@@ -1,32 +1,63 @@
 #!/usr/bin/env python3
 """
 CO2 Sensor (SGP30 via I2C)
-I2C Address: 0x5A (automatisch)
+Verwendet adafruit_sgp30 (system-weit verfügbar)
+I2C Address: 0x58
 """
 
-from pitop.pma import SGP30
 import config
+
+try:
+    import board
+    import adafruit_sgp30
+    SENSOR_AVAILABLE = True
+except ImportError:
+    SENSOR_AVAILABLE = False
+    print("⚠️  adafruit_sgp30 nicht verfügbar - Dummy-Modus")
 
 
 class CO2Sensor:
     def __init__(self):
-        # SGP30 Sensor über I2C (Adresse 0x5A automatisch)
-        self.sensor = SGP30()
-        print(f"✅ CO2 Sensor (SGP30) auf I2C initialisiert")
+        """Initialisiert CO2 Sensor"""
+        self._co2_level = 400
+        self._tvoc_level = 0
+        self.sensor = None
+        
+        if SENSOR_AVAILABLE:
+            try:
+                i2c = board.I2C()
+                self.sensor = adafruit_sgp30.Adafruit_SGP30(i2c)
+                self.sensor.iaq_init()
+                self.sensor.set_iaq_baseline(0x8973, 0x8AAE)
+                print(f"✅ CO2 Sensor (SGP30) auf I2C initialisiert")
+            except Exception as e:
+                print(f"⚠️  SGP30 Hardware nicht gefunden: {e}")
+                print(f"💡 Sensor läuft im Dummy-Modus")
+                self.sensor = None
     
     def read(self):
         """Liest eCO2 Wert in ppm"""
-        return self.sensor.eco2
+        if self.sensor is None:
+            return self._co2_level
+        
+        try:
+            self._co2_level = self.sensor.eCO2
+            self._tvoc_level = self.sensor.TVOC
+        except Exception as e:
+            print(f"⚠️  CO2 Read-Fehler: {e}")
+        
+        return self._co2_level
     
     @property
     def co2_level(self):
         """Aktueller CO2 Level in ppm"""
-        return self.sensor.eco2
+        self.read()
+        return self._co2_level
     
     @property
     def tvoc_level(self):
         """Total Volatile Organic Compounds (TVOC) in ppb"""
-        return self.sensor.tvoc
+        return self._tvoc_level
     
     def get_alarm_status(self):
         """

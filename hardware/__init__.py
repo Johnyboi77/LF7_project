@@ -4,10 +4,10 @@ from hardware.step_counter import StepCounter
 
 __all__ = [
     'Button',
-    'LED', 
+    'LED',
     'Buzzer',
     'CO2Sensor',
     'StepCounter'
 ]
 
-print("✅ PiTop 4 Hardware geladen")
+print("✅ PiTop4 Hardware geladen")
