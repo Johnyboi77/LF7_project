@@ -10,7 +10,9 @@ cd /mnt/c/Users/knigh/LF7_project
 source ~/grove_env/bin/activate
 
 
-# PITOP VORBEREITUNG / 1 und 2 (Jeweils in neuem Terminal)
+# PITOP VORBEREITUNG / 1 und 2 (Jeweils in neuem Terminal) 
+--> Brauchen zuerst WLAN!!! Laptop & Pitop müssen anschlieeßnd im gleichen Netz sein
+
 # 3. PiTop mit USB-Stick oder MicroSD booten
  --> (Nach Reset nötig, da von anderen Gruppen genutzt!)
 
@@ -85,9 +87,10 @@ cd ~/LF7_project
 source venv/bin/activate
 python3 main_pitop2.py
 
-Testcommmands
+### Logout von (venv) pi@pi-top:~ $
+exit 
 
-# Komplette Test-Suite (vor Präsentation!)
-python3 test_all.py
+#### Falls Daten neu generiert werden müssen
+rm -rf LF7_project
 
 
