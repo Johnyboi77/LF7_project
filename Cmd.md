@@ -97,3 +97,18 @@ rm -rf LF7_project
 cd /mnt/c/Users/knigh/LF7_project
 find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
 find . -name "*.pyc" -delete
+
+
+### TEST SCRIPTE ausführen
+
+# 1. Pythen Cache löschen
+cd /mnt/c/Users/knigh/LF7_project
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+find . -name "*.pyc" -delete
+
+# 2. Virtual Environment aktivieren
+python3 -m venv venv
+source venv/bin/activate
+
+# 3. Test Skript ausführen (Datenbank Skript)
+python3 test_db.py
