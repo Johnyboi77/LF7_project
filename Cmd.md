@@ -6,15 +6,18 @@ cd /mnt/c/Users/knigh/LF7_project && tree -L 3 -I 'node_modules|.next|.git|dist|
 # 1. In Projektverzeichnis gehen
 cd /mnt/c/Users/knigh/LF7_project
 
-# 2. Virtual Environment aktivieren (wichtig für Installationen!)
-source ~/grove_env/bin/activate
+# 2. Virtual Environment erstellen aktivieren (wichtig für Installationen!)
+python3 -m venv venv
+source venv/bin/activate
 
+# 3. Altes Archiv löschen
+cd /mnt/c/Users/knig
+rm LF7_project.tar.gz
+ls
+cd LF7_project
 
 # PITOP VORBEREITUNG / 1 und 2 (Jeweils in neuem Terminal) 
 --> Brauchen zuerst WLAN!!! Laptop & Pitop müssen anschlieeßnd im gleichen Netz sein
-
-# 3. PiTop mit USB-Stick oder MicroSD booten
- --> (Nach Reset nötig, da von anderen Gruppen genutzt!)
 
 # 4. SSH-Verbindung zum PiTop 1 herstellen (Terminal 2)
 ssh pi@10.128.206.178
@@ -45,6 +48,7 @@ tar -czf LF7_project.tar.gz \
   LF7_project/
 
 # 5. Archiv auf PiTops übertragen 
+cd /mnt/c/Users/knigh
 scp LF7_project.tar.gz pi@10.128.206.178:~/
 scp LF7_project.tar.gz pi@10.128.206.54:~/
 # Passwort: pi-top
@@ -63,10 +67,9 @@ python3 -m venv venv
 source venv/bin/activate
 # Ausgabe sollte jetzt (venv) vor dem Pfad zeigen
 
-# 10. Python-Pakete installieren
+### 10. Python-Pakete installieren ###
+pip install --upgrade pip
 pip install -r requirements.txt
-
-Startcommands
 
 # Terminal 1 - PiTop 1 (Arbeitsplatz)
 ssh pi@ ...
