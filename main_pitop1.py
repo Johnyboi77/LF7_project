@@ -81,11 +81,11 @@ class LearningSession:
         if self.state == "WORKING":
             self.timer.reset()
             self.state = "IDLE"
-            self.led.off()
+            self.-led(off)
         elif self.state == "BREAK":
             self.timer.reset()
             self.state = "IDLE"
-            self.led.off()
+            self.led(off)
     
     # ===== WORK SESSION =====
     
@@ -106,7 +106,6 @@ class LearningSession:
         self.timer.set_session_id(self.session_id)
         
         # UI Feedback
-        self.led.on()  # Weiß/Grün
         self.buzzer.beep(0.2)
         
         # Discord Benachrichtigung
@@ -123,7 +122,6 @@ class LearningSession:
         print("="*60)
         
         self.state = "WORKING"
-        self.led.on()
         self.buzzer.beep(0.2)
         
         # Neue Arbeitsphase (30 Min)
@@ -153,7 +151,6 @@ class LearningSession:
         self.timer.is_running = False
         
         # UI Feedback
-        self.led.blink(0.5, 0.5)  # Blinken = Break aktiv
         self.buzzer.beep(0.2)
         
         # Discord: Break vorbei
@@ -219,8 +216,6 @@ class LearningSession:
         print("☕ BREAK BEENDET")
         print("="*60)
         
-        # LED aus / normal
-        self.led.off()
         self.buzzer.beep(0.1)
         
         # Update DB-Status zu 'work_ready'
@@ -252,7 +247,6 @@ class LearningSession:
         self.timer.is_running = False
         
         # UI Feedback
-        self.led.off()
         self.buzzer.long_beep(2.0)
         
         # Statistiken aus Services
@@ -294,10 +288,10 @@ class LearningSession:
             if not self.co2_alarm_active:
                 print(f"\n🚨 KRITISCHE CO2-WERTE: {co2_level} ppm")
                 
-                # LED: Schnelles Rot blinken
-                self.led.blink(0.1, 0.1)
+                # LED: Dauerhaft an (ROT)
+                self.led.on()
                 
-                # Buzzer: Doppelbeep
+                # Buzzer: Doppelbeep (akustische Warnung)
                 self.buzzer.co2_alarm()
                 
                 # Discord
@@ -305,20 +299,20 @@ class LearningSession:
                 
                 # DB Log
                 self.db.log_co2(self.session_id, co2_level, tvoc_level, 
-                               is_alarm=True, alarm_type="critical")
+                            is_alarm=True, alarm_type="critical")
                 
                 self.co2_alarm_active = True
                 self.last_co2_warning = datetime.now()
-        
+
         # ===== WARNING (600-800 ppm) =====
         elif alarm_status == "warning":
             if not self.co2_alarm_active or \
-               (self.last_co2_warning and 
+            (self.last_co2_warning and 
                 (datetime.now() - self.last_co2_warning).seconds > 300):
                 
                 print(f"\n⚠️  WARNUNG CO2-WERTE: {co2_level} ppm")
                 
-                # LED: An (Gelb/Orange)
+                # LED: Dauerhaft an (ROT)
                 self.led.on()
                 
                 # Discord (kein Ping)
@@ -328,29 +322,24 @@ class LearningSession:
                 
                 # DB Log
                 self.db.log_co2(self.session_id, co2_level, tvoc_level,
-                               is_alarm=True, alarm_type="warning")
+                            is_alarm=True, alarm_type="warning")
                 
                 self.co2_alarm_active = True
                 self.last_co2_warning = datetime.now()
-        
+
         # ===== OK (< 600 ppm) =====
         else:
             if self.co2_alarm_active:
                 print(f"✅ CO2 normal: {co2_level} ppm")
                 self.co2_alarm_active = False
                 
-                # LED aus (wenn nicht gerade arbeitet)
-                if self.state == "IDLE":
-                    self.led.off()
-                elif self.state == "WORKING":
-                    self.led.on()
-                elif self.state == "BREAK":
-                    self.led.blink(0.5, 0.5)
+                # LED IMMER aus bei normalem CO2
+                self.led.off()
             
             # Normale Messung loggen
             if self.session_id and self.state in ["WORKING", "BREAK"]:
                 self.db.log_co2(self.session_id, co2_level, tvoc_level,
-                               is_alarm=False, alarm_type=None)
+                            is_alarm=False, alarm_type=None)
     
     # ===== MAIN LOOP =====
     

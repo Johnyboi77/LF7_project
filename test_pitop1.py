@@ -90,11 +90,11 @@ class TestLearningSession:
         if self.state == "WORKING":
             self.timer.reset()
             self.state = "IDLE"
-            self.led.off()
+            self.led.off()  # ✅ LED aus bei Reset
         elif self.state == "BREAK":
             self.timer.reset()
             self.state = "IDLE"
-            self.led.off()
+            self.led.off()  # ✅ LED aus bei Reset
     
     # ===== WORK SESSION =====
     
@@ -112,8 +112,7 @@ class TestLearningSession:
         self.session_id = self.db.create_session()
         self.timer.set_session_id(self.session_id)
         
-        # UI Feedback
-        self.led.on()
+        # UI Feedback (KEINE LED mehr!)
         self.buzzer.beep(0.2)
         
         # Discord
@@ -156,7 +155,7 @@ class TestLearningSession:
         print("="*60)
         
         self.state = "WORKING"
-        self.led.on()
+        # KEINE LED mehr!
         self.buzzer.beep(0.2)
         
         self._run_work_timer()
@@ -178,8 +177,7 @@ class TestLearningSession:
         self.timer.stop_event.set()
         self.timer.is_running = False
         
-        # UI Feedback
-        self.led.blink(0.5, 0.5)
+        # UI Feedback (KEINE LED mehr!)
         self.buzzer.beep(0.2)
         
         # Discord
@@ -239,7 +237,7 @@ class TestLearningSession:
         print("☕ BREAK BEENDET (TEST)")
         print("="*60)
         
-        self.led.off()
+        # KEINE LED-Änderung (nur CO2 steuert LED)
         self.buzzer.beep(0.1)
         
         # Update DB
@@ -267,7 +265,7 @@ class TestLearningSession:
         self.timer.is_running = False
         
         # UI
-        self.led.off()
+        self.led.off()  # ✅ LED aus bei Session-Ende
         self.buzzer.long_beep(2.0)
         
         # Hochgerechnete Zeiten für DB
@@ -305,37 +303,34 @@ class TestLearningSession:
     # ===== CO2 MONITORING (reduziert für Tests) =====
     
     def _monitor_co2(self):
-        """🌡️ CO2-Überwachung (vereinfacht für Tests)"""
+        """🌡️ CO2-Überwachung - LED NUR für CO2-Warnung!"""
         
         try:
             alarm_status = self.co2.get_alarm_status()
             co2_level = self.co2.read()
             tvoc_level = self.co2.tvoc_level
             
+            # ===== CRITICAL (> 800 ppm) =====
             if alarm_status == "critical":
                 if not self.co2_alarm_active:
                     print(f"\n🚨 CO2 KRITISCH: {co2_level} ppm")
-                    self.led.blink(0.1, 0.1)
+                    self.led.on()  # ✅ Dauerhaft an (kein Blinken!)
                     self.buzzer.co2_alarm()
                     self.co2_alarm_active = True
             
+            # ===== WARNING (600-800 ppm) =====
             elif alarm_status == "warning":
                 if not self.co2_alarm_active:
                     print(f"\n⚠️ CO2 WARNING: {co2_level} ppm")
-                    self.led.on()
+                    self.led.on()  # ✅ Dauerhaft an
                     self.co2_alarm_active = True
             
+            # ===== OK (< 600 ppm) =====
             else:
                 if self.co2_alarm_active:
                     print(f"✅ CO2 normal: {co2_level} ppm")
                     self.co2_alarm_active = False
-                    
-                    if self.state == "IDLE":
-                        self.led.off()
-                    elif self.state == "WORKING":
-                        self.led.on()
-                    elif self.state == "BREAK":
-                        self.led.blink(0.5, 0.5)
+                    self.led.off()  # ✅ IMMER aus bei normalem CO2
         
         except Exception as e:
             pass  # Ignoriere CO2-Fehler im Test
@@ -353,6 +348,7 @@ class TestLearningSession:
         print(f"   ⚡ Arbeitsphase: {TEST_WORK_DURATION}s (statt 30 Min)")
         print(f"   ⚡ Pausenphase: {TEST_BREAK_DURATION}s (statt 10 Min)")
         print(f"   📊 DB Multiplikator: x{DB_MULTIPLIER}")
+        print(f"   💡 LED: NUR für CO2-Warnung (kein Status-Feedback)")
         
         print("\n🎯 KONTROLLEN:")
         print("  🔘 Button 1 kurz  → Lernphase starten")

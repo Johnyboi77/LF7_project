@@ -39,14 +39,14 @@ class Buzzer:
     
     def beep(self, duration=None):
         """Kurzer Beep"""
-        duration = duration or config.BUZZER_CO2_DURATION
+        duration = duration or BUZZER_CO2_DURATION  
         self.buzzer.on()
         sleep(duration)
         self.buzzer.off()
     
     def long_beep(self, duration=None):
         """Langer Beep für Timer"""
-        duration = duration or config.BUZZER_TIMER_DURATION
+        duration = duration or BUZZER_TIMER_DURATION  
         self.buzzer.on()
         sleep(duration)
         self.buzzer.off()
@@ -64,10 +64,15 @@ class Buzzer:
     
     def _co2_pattern(self):
         """CO2 Alarm: Mehrfach Beep"""
-        for _ in range(config.BUZZER_CO2_REPETITIONS):
-            self.beep(config.BUZZER_CO2_DURATION)
-            sleep(config.BUZZER_CO2_INTERVAL)
+        for _ in range(BUZZER_CO2_REPETITIONS): 
+            self.beep(BUZZER_CO2_DURATION)        
+            sleep(BUZZER_CO2_INTERVAL)            
     
     def timer_alarm(self):
         """Timer Ende: Langer Beep"""
-        self.long_beep(config.BUZZER_TIMER_DURATION)
+        self.long_beep(BUZZER_TIMER_DURATION) 
+    
+    def cleanup(self):
+        """Ressourcen freigeben"""
+        self.off()
+        self.buzzer.close()

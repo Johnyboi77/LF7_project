@@ -17,8 +17,7 @@ Das System motiviert durch strukturierte 30-Min-Lernphasen mit 10-Min-Aktivpause
 ├─────────────────────────────────────────────────┤
 │  👉 Button 1 kurz drücken                       │
 │  ✅ Arbeitsphase startet (30 Min)               │
-│  📱 Discord: "Hey Alicia! Lerneinheit gestartet"│
-│  💡 LED leuchtet (Arbeitsphase aktiv)           │
+│  📱 Discord: "Hey Alicia! Lerneinheit gestartet"│         
 │  🌡️  CO2-Überwachung aktiv                      │
 └─────────────────────────────────────────────────┘
               ⬇️  [30 Minuten vergehen]
@@ -27,7 +26,6 @@ Das System motiviert durch strukturierte 30-Min-Lernphasen mit 10-Min-Aktivpause
 ├─────────────────────────────────────────────────┤
 │  ⏰ Timer abgelaufen                            │
 │  🔊 Langer Piepton (Buzzer 2s)                  │
-│  💡 LED aus                                     │
 │  💡 Optionale Pause möglich                     │
 └─────────────────────────────────────────────────┘
               ⬇️
@@ -36,17 +34,15 @@ Das System motiviert durch strukturierte 30-Min-Lernphasen mit 10-Min-Aktivpause
 ├─────────────────────────────────────────────────┤
 │  👉 Button 2 kurz drücken                       │
 │  ✅ Pausenphase startet (10 Min)                │
-│  💡 LED blinkt langsam (Pause-Modus)            │
 │  🚶 PiTop 2: Schrittzähler aktiviert            │
 │  📊 Datenbank: Status = 'break'                 │
 │  📱 Discord: "Arbeitsphase beendet"             │
 └─────────────────────────────────────────────────┘
-              ⬇️  [10 Minuten vergehen - beide PiTops synchron]
+   ⬇️  [10 Minuten vergehen - beide PiTops synchron]
 ┌─────────────────────────────────────────────────┐
 │  4️⃣  PAUSE BEENDET                              │
 ├─────────────────────────────────────────────────┤
 │  ⏰ Pause abgelaufen                            │
-│  💡 LED aus                                     │
 │  🔊 Kurzer Beep                                 │
 │  📱 Discord: "1.247 Schritte, 62 kcal, 935m"    │
 │  💾 Daten in Supabase gespeichert               │
@@ -65,7 +61,6 @@ Das System motiviert durch strukturierte 30-Min-Lernphasen mit 10-Min-Aktivpause
 ├─────────────────────────────────────────────────┤
 │  👉 Button 1 für 5+ Sekunden halten             │
 │  🛑 Session wird beendet                        │
-│  💡 LED aus                                     │
 │  🔊 Langer Piepton (2s)                         │
 │  📊 Kompletter Report wird erstellt:            │
 │     • Gesamte Lernzeit: 90 Min                  │
@@ -91,15 +86,12 @@ Kontinuierlich Überprüfung derLuftqualität während der Arbeitsphase und warn
 CO2-Level	    Status	            Visuell	                        Akustisch	              Discord
 < 600 ppm	    💚 Ausgezeichnet	LED aus/an (je nach Phase)	    Keine Aktion	          -
 600-800 ppm	    💛 Warning	        🔴 LED leuchtet dauerhaft	    Stille	                 ⚠️ Warnung (alle 5 Min)
-> 800 ppm	    🚨 Kritisch	        🔴 LED blinkt schnell (0.1s)	🔊 Buzzer piept 2x	    🆘 @Ping Warnung
+> 800 ppm	    🚨 Kritisch	        🔴 LED leuchtet dauerhaft	    Buzzer piept 2x	         🆘 @Ping Warnung
 
 💡 LED-Status im Detail:
 Situation	            LED-Verhalten
-Arbeitsphase aktiv	    💚 Leuchtet dauerhaft
-Pausenphase aktiv	    🟡 Blinkt langsam (0.5s)
-CO2 Warning	            🔴 Leuchtet dauerhaft
-CO2 Kritisch	        🔴 Blinkt schnell (0.1s)
 System IDLE	            ⚫ Aus
+CO2 Warning	            🔴 Leuchtet dauerhaft
 
 🔊 Buzzer-Signale:
 Event	            Signal
