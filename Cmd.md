@@ -45,20 +45,11 @@ tar -czf LF7_project.tar.gz \
   LF7_project/
 
 # 5. Archiv auf PiTops übertragen 
-scp LF7_project.tar.gz pi@192.168.0.53:~/
-scp LF7_project.tar.gz pi@192.168.0.53:~/
+scp LF7_project.tar.gz pi@10.128.206.178:~/
+scp LF7_project.tar.gz pi@10.128.206.54:~/
 # Passwort: pi-top
 
 scp LF7_project.tar.gz pi@:~/ 
-
-
-# 5.1. Upload prüfen (auf PiTop via SSH)
-ls -la
-
-# 5.2  Optional: .env Dateien extra übertragen (falls nicht im Archiv)
-
-cd /mnt/c/Users/knigh/LF7_project
-scp .env.pitop1 .env.pitop2 pi@192.168.0.53:~/LF7_project/
 
 # 6. Projekt entpacken und in Verzeichnis wechseln
 tar -xzf LF7_project.tar.gz
