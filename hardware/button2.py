@@ -6,11 +6,9 @@ PORT: D1 (HARDCODED)
 - Double Click: Emergency Stop
 """
 
-import threading
-from time import time
-from pitop import Button
+from hardware import Button
 import config
-
+from time import time
 
 class Button2:
     def __init__(self):

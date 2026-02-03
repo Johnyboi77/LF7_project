@@ -4,10 +4,9 @@ LED Control mit Blink-Support
 PORT: D2 (HARDCODED)
 """
 
+from hardware import LED as PitopLED
 import threading
 from time import sleep
-from pitop import LED as PitopLED
-
 
 class LED:
     def __init__(self):

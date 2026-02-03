@@ -17,7 +17,8 @@ source ~/grove_env/bin/activate
  --> (Nach Reset nötig, da von anderen Gruppen genutzt!)
 
 # 4. SSH-Verbindung zum PiTop 1 herstellen (Terminal 2)
-ssh pi@192.168.0.53 
+ssh pi@10.128.206.178
+ssh pi@10.128.206.54
 # Passwort: pi-top
 
 # 4.1 SSH-Verbindung zum PiTop 2 herstellen (terminal 3)
@@ -44,6 +45,7 @@ tar -czf LF7_project.tar.gz \
   LF7_project/
 
 # 5. Archiv auf PiTops übertragen 
+scp LF7_project.tar.gz pi@192.168.0.53:~/
 scp LF7_project.tar.gz pi@192.168.0.53:~/
 # Passwort: pi-top
 
@@ -76,13 +78,13 @@ pip install -r requirements.txt
 Startcommands
 
 # Terminal 1 - PiTop 1 (Arbeitsplatz)
-ssh pi@192.168.0.53
+ssh pi@ ...
 cd ~/LF7_project
 source venv/bin/activate
 python3 main_pitop1.py
 
 # Terminal 2 - PiTop 2 (Pausenzone)
-ssh pi@192.168.0.54
+ssh pi@ ...
 cd ~/LF7_project
 source venv/bin/activate
 python3 main_pitop2.py

@@ -4,11 +4,9 @@ Buzzer für Signale und Alarme
 PORT: D3 (HARDCODED)
 """
 
+from hardware import PitopBuzzer
 import threading
 from time import sleep
-from pitop import Buzzer as PitopBuzzer
-import config
-
 
 class Buzzer:
     def __init__(self):
