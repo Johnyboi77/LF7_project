@@ -15,14 +15,12 @@ try:
     print("✅ Using BMA400")
 except ImportError:
     try:
-        # Fallback: IMU (verfügbar in pitop.pma)
         from pitop.pma import IMU
         SENSOR_TYPE = "IMU"
         print("⚠️  BMA400 nicht verfügbar, verwende IMU")
     except ImportError:
         SENSOR_TYPE = None
         print("⚠️  Kein Sensor verfügbar - Dummy-Modus")
-
 
 class StepCounter:
     def __init__(self):

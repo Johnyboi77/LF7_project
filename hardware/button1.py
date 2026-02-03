@@ -7,9 +7,22 @@ PORT: D0 (HARDCODED)
 - Double Click: Cancel
 """
 
-from hardware import Button
-import config
+from pitop import Button
+import threading
 from time import time
+
+# Config-Werte (falls config nicht verfügbar, Defaults setzen)
+try:
+    import config
+    END_SESSION_PRESS = config.END_SESSION_PRESS
+    SHORT_PRESS_MAX = config.SHORT_PRESS_MAX
+    DOUBLE_CLICK_INTERVAL = config.DOUBLE_CLICK_INTERVAL
+except ImportError:
+    # Fallback-Werte
+    END_SESSION_PRESS = 5.0      # 5 Sekunden für Long Press
+    SHORT_PRESS_MAX = 0.5        # Max 0.5s für Short Press
+    DOUBLE_CLICK_INTERVAL = 0.3  # 300ms für Double Click
+
 
 class Button1:
     def __init__(self):
@@ -41,7 +54,7 @@ class Button1:
         now = time()
         
         # Long Press (5+ Sekunden)
-        if duration >= config.END_SESSION_PRESS:
+        if duration >= END_SESSION_PRESS:
             self.click_count = 0
             if self.double_click_timer:
                 self.double_click_timer.cancel()
@@ -50,7 +63,7 @@ class Button1:
             self.last_release_time = now
         
         # Short Press
-        elif duration <= config.SHORT_PRESS_MAX:
+        elif duration <= SHORT_PRESS_MAX:
             self.click_count += 1
             
             if self.double_click_timer:
@@ -58,7 +71,7 @@ class Button1:
             
             if self.click_count == 1:
                 self.double_click_timer = threading.Timer(
-                    config.DOUBLE_CLICK_INTERVAL,
+                    DOUBLE_CLICK_INTERVAL,
                     self._single_click_timeout
                 )
                 self.double_click_timer.start()
@@ -79,10 +92,19 @@ class Button1:
         self.click_count = 0
     
     def on_short_press(self, callback):
+        """Callback für kurzen Tastendruck"""
         self.short_press_cb = callback
     
     def on_long_press(self, callback):
+        """Callback für langen Tastendruck (5s)"""
         self.long_press_cb = callback
     
     def on_double_click(self, callback):
+        """Callback für Doppelklick"""
         self.double_click_cb = callback
+    
+    def cleanup(self):
+        """Ressourcen freigeben"""
+        if self.double_click_timer:
+            self.double_click_timer.cancel()
+        self.button.close()

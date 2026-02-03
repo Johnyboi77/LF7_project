@@ -4,9 +4,22 @@ Buzzer für Signale und Alarme
 PORT: D3 (HARDCODED)
 """
 
-from hardware import PitopBuzzer
+from pitop import Buzzer as PitopBuzzer
 import threading
 from time import sleep
+
+# Config-Werte mit Fallback
+try:
+    import config
+    BUZZER_CO2_DURATION = config.BUZZER_CO2_DURATION
+    BUZZER_CO2_INTERVAL = config.BUZZER_CO2_INTERVAL
+    BUZZER_CO2_REPETITIONS = config.BUZZER_CO2_REPETITIONS
+    BUZZER_TIMER_DURATION = config.BUZZER_TIMER_DURATION
+except ImportError:
+    BUZZER_CO2_DURATION = 0.2
+    BUZZER_CO2_INTERVAL = 0.3
+    BUZZER_CO2_REPETITIONS = 3
+    BUZZER_TIMER_DURATION = 1.0
 
 class Buzzer:
     def __init__(self):

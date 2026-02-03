@@ -9,9 +9,8 @@ import sys
 import time
 from datetime import datetime
 from threading import Thread, Event
-
-import config
-from hardware.step_counter import StepCounter
+from hardware import Button1, Button2, LED, Buzzer, CO2Sensor
+from services.timer_service import TimerService
 from services.notification_service import NotificationService
 from database.supabase_manager import SupabaseManager
 

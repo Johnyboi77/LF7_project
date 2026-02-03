@@ -9,17 +9,10 @@ import signal
 import sys
 from time import sleep
 from datetime import datetime
-
-import config
-from hardware.button1 import Button1
-from hardware.button2 import Button2
-from hardware.led import LED
-from hardware.buzzer import Buzzer
-from hardware.Co2_sensor import CO2Sensor
+from hardware import Button1, Button2, LED, Buzzer, CO2Sensor
 from services.timer_service import TimerService
 from services.notification_service import NotificationService
 from database.supabase_manager import SupabaseManager
-
 
 class LearningSession:
     def __init__(self):

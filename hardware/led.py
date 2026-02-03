@@ -4,10 +4,19 @@ LED Control mit Blink-Support
 PORT: D2 (HARDCODED)
 """
 
-from hardware import LED as PitopLED
+from pitop import LED as PitopLED
 import threading
 from time import sleep
 
+# Config-Werte mit Fallback
+try:
+    import config
+    LED_BLINK_SLOW = config.LED_BLINK_SLOW
+    LED_BLINK_FAST = config.LED_BLINK_FAST
+except ImportError:
+    LED_BLINK_SLOW = 1.0   # 1 Sekunde
+    LED_BLINK_FAST = 0.3   # 300ms
+    
 class LED:
     def __init__(self):
         self.pin_name = "D2"  # 🔒 HARDCODED
