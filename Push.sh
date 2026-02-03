@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Struktur und Main Anpassungen"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Optimierung der Tests"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"
