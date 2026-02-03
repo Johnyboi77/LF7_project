@@ -116,6 +116,21 @@ Bei Critical: Sofort lüften und Pause einlegen
 Optimal: CO2 < 600 ppm
 
 🔧 Technische Details
+
+# CO2 (eCO2) - Kohlendioxid in ppm (parts per million)
+
+400 ppm = Sensor-Minimum (Frischluft draußen: ~420 ppm)
+600-800 ppm = Leicht erhöht (normaler Raum mit Menschen)
+800-1500 ppm = Kritisch (schlechte Luftqualität)
+>1500 ppm = Sehr kritisch (Kopfschmerzen, Müdigkeit)
+
+# TVOC - Total Volatile Organic Compounds in ppb (parts per billion)
+0-50 ppb = Sehr gut
+50-220 ppb = Gut
+220-660 ppb = Mäßig
+660-2200 ppb = Schlecht
+>2200 ppb = Sehr schlecht
+
 🖥️ Hardware-Setup
 
 # PiTop 1 - Arbeitsplatz

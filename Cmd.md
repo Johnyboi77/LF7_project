@@ -21,7 +21,7 @@ cd LF7_project
 
 # 4. SSH-Verbindung zum PiTop 1 herstellen (Terminal 2)
 ssh pi@10.128.206.178
-ssh pi@10.128.206.54
+ssh pi@10.128.206.115
 # Passwort: pi-top
 
 # 4.1 SSH-Verbindung zum PiTop 2 herstellen (terminal 3)
@@ -50,7 +50,7 @@ tar -czf LF7_project.tar.gz \
 # 5. Archiv auf PiTops übertragen 
 cd /mnt/c/Users/knigh
 scp LF7_project.tar.gz pi@10.128.206.178:~/
-scp LF7_project.tar.gz pi@10.128.206.54:~/
+scp LF7_project.tar.gz pi@10.128.206.115:~/
 # Passwort: pi-top
 
 scp LF7_project.tar.gz pi@:~/ 
@@ -64,13 +64,17 @@ rm ~/LF7_project.tar.gz
 
 # 9. Virtual Environment auf PiTop erstellen
 # erst 'deactivate'
-python3 -m venv venv
+
+### bei Problemen:
+python3 -m venv venv --system-site-packages
 source venv/bin/activate
+
 # Ausgabe sollte jetzt (venv) vor dem Pfad zeigen
 
 ### 10. Python-Pakete installieren ###
 pip install --upgrade pip
 pip install -r requirements.txt
+
 sudo apt-get install python3-pitop python3-gpiozero
 
 # Terminal 1 - PiTop 1 (Arbeitsplatz)

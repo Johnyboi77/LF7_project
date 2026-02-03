@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Magie mit Requirements.."
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Neue Testfile und Co2 hat funktioniert / step counter test file works?"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"
