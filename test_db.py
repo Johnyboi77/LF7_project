@@ -5,6 +5,7 @@ test_db.py - Schneller Supabase Verbindungstest
 
 import os
 import sys
+from dotenv import load_dotenv
 
 # Device Override für config.py
 os.environ['DEVICE_OVERRIDE'] = 'pitop1'
