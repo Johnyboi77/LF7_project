@@ -90,24 +90,15 @@ CO2-Level	Status	Reaktion
 🔧 Technische Details
 🖥️ Hardware-Setup
 
-PiTop 1 - Arbeitsplatz
-Komponente	Port	Funktion
-Button 1	D0	Work-Timer starten/stoppen
-Button 2	D1	Pause starten
-LED (Rot)	D2	Status-Anzeige (An/Aus/Blink)
-Buzzer	D3	Akustische Signale
-CO2 Sensor (SGP30)	I2C 0x5A	Luftqualität (eCO2 + TVOC)
+# PiTop 1 - Arbeitsplatz
+Komponente	        Port	    Funktion
+Button 1	        D0	        Work-Timer starten/stoppen
+Button 2	        D1	        Pause starten
+LED (Rot)	        D2	        Status-Anzeige (An/Aus/Blink)
+Buzzer	            D3	        Akustische Signale
+CO2 Sensor (SGP30)	I2C (0x5A)	Luftqualität (eCO2 + TVOC)
 
-PiTop 2 - Pausenzone
-Komponente	Port	Funktion
-Step Counter (BMA400)	I2C 0x14	Schritte, Kalorien, Distanz
+# PiTop 2 - Pausenzone
+Komponente	            Port	    Funktion
+Step Counter (BMA400)	I2C (0x14)	Schritte, Kalorien, Distanz
 
-# Pitop Ports - System 1
-Button1      > D0 intern
-Button2      > D1 intern
-LED (rote)   > D2 intern
-Buzzer       > D3 intern
-CO2Sensor    > I2C 0x5A automatisch
-
-# Pitop Ports - System 2
-StepCounter   > I2C  (0x14) automatisch bzw hardcoded
