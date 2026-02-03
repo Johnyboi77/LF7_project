@@ -5,7 +5,7 @@ import os
 import sys
 
 # ⚠️ WICHTIG: Device Override MUSS VOR import config stehen!
-os.environ['DEVICE_OVERRIDE'] = 'pitop1'
+os.environ['DEVICE_OVERRIDE'] = 'pitop2'
 
 import config
 from supabase import create_client

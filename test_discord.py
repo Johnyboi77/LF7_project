@@ -7,8 +7,8 @@ Nur noch die essentiellen 3 Nachrichten + CO2 Critical
 import sys
 from datetime import datetime
 from requests import post
-from services.notification_service import NotificationService
-from services.discord_message_templates import MessageTemplates
+from services.discord_templates import NotificationService
+from services.discord_templates import MessageTemplates
 
 def print_header(title):
     print("\n" + "="*60)

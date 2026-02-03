@@ -4,8 +4,8 @@ pi-top 2 - Pausenstation mit Schrittzähler
 AUTOMATISCHER StepCounter-Start via Datenbank-Polling
 """
 
-
-
+import os
+import sys
 
 # ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
 if '--device=' not in ' '.join(sys.argv):
@@ -18,7 +18,7 @@ from threading import Thread, Event
 import config
 from hardware import StepCounter
 from services.timer_service import TimerService
-from services.notification_service import NotificationService
+from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
 
 
@@ -187,8 +187,8 @@ class BreakStation:
         # In DB speichern
         self._save_break_data(steps, calories, distance)
         
-        # Discord Benachrichtigung
-        self._send_break_notification(user_name, steps, calories, distance)
+        # Discord Benachrichtigung (UPDATED: nutzt jetzt send_break_stats())
+        self.notify.send_break_stats(self.pause_number, steps, calories, distance)
         
         # Session Status zurück auf 'ready'
         self._update_session_status('work_ready')
@@ -242,39 +242,6 @@ class BreakStation:
         
         except Exception as e:
             print(f"⚠️  Status-Update Fehler: {e}")
-    
-    def _send_break_notification(self, user_name, steps, calories, distance):
-        """📱 Sendet Discord Push nach Break"""
-        
-        if not self.notify.is_enabled:
-            return
-        
-        from services.discord_message_templates import MessageTemplates
-        
-        template = MessageTemplates.break_stats(user_name, self.pause_number, steps, calories, distance)
-        
-        try:
-            from requests import post
-            
-            payload = {
-                "embeds": [{
-                    "title": template['title'],
-                    "description": template['description'],
-                    "color": template['color'],
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "footer": {"text": "Break Station - PiTop 2"}
-                }]
-            }
-            
-            response = post(self.notify.webhook_url, json=payload, timeout=5)
-            
-            if response.status_code == 204:
-                print("✅ Discord-Benachrichtigung versendet")
-            else:
-                print(f"⚠️  Discord Status: {response.status_code}")
-        
-        except Exception as e:
-            print(f"⚠️  Discord-Fehler: {e}")
     
     # ===== MAIN =====
     

@@ -5,7 +5,7 @@ Button 1 + Button 2 + LED + Buzzer + CO2 Sensor
 KEIN Schrittzähler (läuft auf PiTop 2)
 """
 
-import signal
+import os
 import sys
 
 # ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
@@ -13,12 +13,13 @@ if '--device=' not in ' '.join(sys.argv):
     os.environ['DEVICE_OVERRIDE'] = 'pitop1'  # Default für diese File
 
 import time
+import signal
 from time import sleep
 from datetime import datetime
 import config
 from hardware import Button1, Button2, LED, Buzzer, CO2Sensor
 from services.timer_service import TimerService
-from services.notification_service import NotificationService
+from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
 
 class LearningSession:
@@ -86,11 +87,11 @@ class LearningSession:
         if self.state == "WORKING":
             self.timer.reset()
             self.state = "IDLE"
-            self.-led(off)
+            self.led.off()
         elif self.state == "BREAK":
             self.timer.reset()
             self.state = "IDLE"
-            self.led(off)
+            self.led.off()
     
     # ===== WORK SESSION =====
     

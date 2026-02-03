@@ -1,8 +1,8 @@
 # requirements.txt - Learning Assistant
-# Updated: Für Raspberry Pi mit System-Packages
+#  >Benötigte Module
 
 # ===== HARDWARE (via System-Packages) =====
-# NICHT mit pip installieren! Stattdessen:
+# NICHT mit pip installieren! Stattdessen: (wsl)
 ### sudo apt-get install python3-pitop python3-gpiozero ###
 
 # ===== CO2 SENSOR =====

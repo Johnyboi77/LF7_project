@@ -18,7 +18,7 @@ from datetime import datetime
 from threading import Thread
 import config
 from hardware import StepCounter
-from services.notification_service import NotificationService
+from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
 
 # 🧪 TEST MODE CONFIGURATION
@@ -229,7 +229,7 @@ class TestBreakStation:
         if not self.notify.is_enabled:
             return
         
-        from services.discord_message_templates import MessageTemplates
+        from services.discord_templates import MessageTemplates
         
         template = MessageTemplates.break_stats(user_name, self.pause_number, steps, calories, distance)
         

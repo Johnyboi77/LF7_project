@@ -2,6 +2,8 @@
 """
 🧪 LED & CO2 Test - 10 Minuten kontinuierliche Überwachung
 Testet: CO2-Sensor, LED-Warnung, Discord-Benachrichtigungen
+
+Terminal: Zeit| CO2 (ppm) | TVOC | Status | LED | Buzzer
 """
 import os
 import sys
@@ -14,7 +16,7 @@ import time
 from datetime import datetime
 import config
 from hardware import LED, Buzzer, CO2Sensor
-from services.notification_service import NotificationService
+from services.discord_templates import NotificationService
 
 class CO2LEDTest:
     def __init__(self):

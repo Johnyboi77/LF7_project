@@ -1,327 +1,222 @@
 #!/usr/bin/env python3
 """
-🧪 Step Counter Test - 10 Minuten kontinuierliche Überwachung
-Testet: BMA400/IMU Schrittzähler, Bewegungserkennung, Discord-Benachrichtigung
+🧪 Step Counter Test - Minimalistisch
+
+Terminal: Zeit | Schritte | Ping (alle 2s)
+Discord: break_stats Template
 """
 import os
 import sys
 
 # ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
 if '--device=' not in ' '.join(sys.argv):
-    os.environ['DEVICE_OVERRIDE'] = 'pitop1'  # Default für diesen Test
+    os.environ['DEVICE_OVERRIDE'] = 'pitop1'
 
 import time
+import subprocess
 from datetime import datetime
-
-# Importiere den StepCounter
-try:
-    from hardware import StepCounter
-except ImportError:
-    # Fallback: Direkter Import
-    from step_counter import StepCounter
-
-# Discord Service
-try:
-    from services.notification_service import NotificationService
-    DISCORD_AVAILABLE = True
-except ImportError:
-    DISCORD_AVAILABLE = False
-    print("⚠️  NotificationService nicht verfügbar")
+from hardware import StepCounter
+from services.discord_templates import NotificationService
 
 
 class StepCounterTest:
     def __init__(self):
-        print("\n" + "="*60)
-        print("🧪 STEP COUNTER TEST - 10 Minuten (Pause-Simulation)")
-        print("="*60)
+        print("\n" + "="*55)
+        print("🧪 STEP COUNTER TEST - 10 Minuten")
+        print("="*55)
         
         # Hardware
         self.step_counter = StepCounter()
         
         # Services
-        if DISCORD_AVAILABLE:
-            self.notify = NotificationService()
-        else:
-            self.notify = None
+        self.notify = NotificationService()
         
         # State
         self.test_start = time.time()
-        self.test_duration = 600  # 10 Minuten (= Pausendauer)
-        self.readings = []
-        self.last_step_count = 0
-        self.steps_per_interval = []
+        self.test_duration = 600  # 10 Minuten
+        self.pause_start_time = datetime.now()
         
-        # Pause-Statistiken (für Discord)
-        self.pause_start_time = None
-        self.pause_end_time = None
+        # Ping-Statistiken
+        self.ping_values = []
+        self.timeout_count = 0
         
-        print(f"📡 Sensor-Typ: {self.step_counter.sensor_type or 'Dummy'}")
-        if self.notify and self.notify.is_enabled:
-            print(f"📱 Discord: Aktiviert ✅")
-        else:
-            print(f"📱 Discord: Nicht verfügbar ⚠️")
-        print("✅ Test-Komponenten initialisiert\n")
+        print(f"📡 Sensor: {self.step_counter.sensor_type or 'Dummy'}")
+        print(f"📱 Discord: {'✅' if self.notify.is_enabled else '⚠️'}")
+        print("✅ Bereit\n")
     
     def run_test(self):
-        """Führt 10-Minuten Test durch (simuliert Pause)"""
+        """Führt 10-Minuten Test durch"""
         
-        print("🚀 TEST GESTARTET - Simuliert 10-Minuten Pause")
-        print(f"⏱️  Dauer: {self.test_duration // 60} Minuten")
-        print(f"📊 Messintervall: 2 Sekunden")
-        print(f"🚶 Bewegung: Gehe mit dem Gerät, um Schritte zu zählen")
-        print(f"📱 Discord: Sendet break_stats am Ende")
-        print(f"📈 Anzeige: Echtzeit-Schrittzählung\n")
+        print("🚀 START - 10 Minuten, Update alle 2s\n")
         
-        print("=" * 70)
-        print(f"{'Zeit':<10} | {'Gesamt':<10} | {'Δ Schritte':<12} | {'Rate/min':<10} | {'Status'}")
-        print("=" * 70)
+        # Einfache Tabelle
+        print("=" * 55)
+        print(f"{'Zeit':<10} | {'Schritte':<10} | {'Ping':<10}")
+        print("=" * 55)
         
         # Step Counter starten
         self.step_counter.start()
-        self.last_step_count = 0
-        self.pause_start_time = datetime.now()
         
         try:
             while time.time() - self.test_start < self.test_duration:
-                elapsed = int(time.time() - self.test_start)
-                remaining = self.test_duration - elapsed
-                
-                # Schritte lesen
-                self._read_steps(elapsed)
-                
-                # Fortschritt alle 10 Messungen
-                if elapsed % 20 == 0:
-                    mins, secs = divmod(remaining, 60)
-                    print(f"\n⏱️  Verbleibend: {mins:02d}:{secs:02d} | 💡 Tipp: Bewege das Gerät!\n")
+                # Schritte lesen und anzeigen
+                self._update_display()
                 
                 # 2 Sekunden warten
                 time.sleep(2)
             
-            print("\n\n" + "="*60)
+            print("\n" + "="*55)
             print("✅ TEST ABGESCHLOSSEN")
-            print("="*60)
+            print("="*55)
             
-            # Stoppen und finale Schritte holen
-            self.pause_end_time = datetime.now()
+            # Stoppen
             final_steps = self.step_counter.stop()
             
-            # Discord-Nachricht senden
-            self._send_discord_stats(final_steps)
+            # Discord senden
+            self._send_discord(final_steps)
             
             self._print_summary(final_steps)
         
         except KeyboardInterrupt:
-            print("\n\n⚠️  Test abgebrochen!")
-            self.pause_end_time = datetime.now()
+            print("\n\n⚠️  Abgebrochen!")
             final_steps = self.step_counter.stop()
-            
-            # Auch bei Abbruch Discord senden
-            self._send_discord_stats(final_steps, aborted=True)
-            
-            self._print_summary(final_steps)
+            self._send_discord(final_steps, aborted=True)
             self._cleanup()
     
-    def _read_steps(self, elapsed_seconds):
-        """Liest Schritte und zeigt Status"""
+    def _update_display(self):
+        """Zeigt aktuelle Werte (Zeit, Schritte, Ping)"""
         
-        current_steps = self.step_counter.read()
-        delta = current_steps - self.last_step_count
-        
-        # Rate berechnen (Schritte pro Minute)
-        if elapsed_seconds > 0:
-            rate = (current_steps / elapsed_seconds) * 60
-        else:
-            rate = 0
-        
-        # Zeitstempel
+        # Zeit
         now = datetime.now().strftime("%H:%M:%S")
         
-        # Status bestimmen
-        if delta > 5:
-            status = "🏃 RUNNING"
-        elif delta > 2:
-            status = "🚶 WALKING"
-        elif delta > 0:
-            status = "🚶‍♂️ SLOW"
+        # Schritte
+        steps = self.step_counter.read()
+        
+        # Ping (mit Verbindungsqualität)
+        ping = self._check_ping()
+        
+        # Ping-Statistiken sammeln
+        if ping == "Timeout" or ping == "Error":
+            self.timeout_count += 1
+            ping_display = f"{ping} ⚠️"
+        elif ping != "OK":
+            # Extrahiere ms-Wert für Warnung und Statistik
+            try:
+                ms_value = float(ping.replace('ms', ''))
+                self.ping_values.append(ms_value)
+                
+                if ms_value > 200:
+                    ping_display = f"{ping} ⚠️"  # Langsam
+                elif ms_value > 100:
+                    ping_display = f"{ping} ⚡"  # Mittel
+                else:
+                    ping_display = f"{ping} ✅"  # Gut
+            except:
+                ping_display = ping
         else:
-            status = "🧍 STILL"
+            ping_display = f"{ping} ✅"
         
-        # Ausgabe
-        print(f"{now}   | {current_steps:<10} | +{delta:<11} | {rate:<10.1f} | {status}")
-        
-        # Speichern
-        self.readings.append({
-            'time': elapsed_seconds,
-            'total': current_steps,
-            'delta': delta,
-            'rate': rate
-        })
-        
-        if delta > 0:
-            self.steps_per_interval.append(delta)
-        
-        self.last_step_count = current_steps
+        # Zeile ausgeben
+        print(f"{now}   | {steps:<10} | {ping_display}")
     
-    def _send_discord_stats(self, steps, aborted=False):
-        """Sendet Pause-Statistiken an Discord"""
+    def _check_ping(self):
+        """Prüft Internet-Verbindung und gibt Ping-Zeit in ms zurück"""
+        try:
+            # Ping zu 8.8.8.8 (Google DNS) - nur 1 Paket, 1s timeout
+            result = subprocess.run(
+                ['ping', '-c', '1', '-W', '1', '8.8.8.8'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=1,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                # Parse Ping-Zeit aus Output
+                # Format: "time=23.4 ms"
+                output = result.stdout
+                if 'time=' in output:
+                    # Extrahiere Zeit zwischen "time=" und " ms"
+                    time_start = output.find('time=') + 5
+                    time_end = output.find(' ms', time_start)
+                    if time_end > time_start:
+                        ping_ms = output[time_start:time_end]
+                        return f"{float(ping_ms):.1f}ms"
+                
+                # Fallback wenn Parsing fehlschlägt
+                return "OK"
+            else:
+                return "Timeout"
+        except subprocess.TimeoutExpired:
+            return "Timeout"
+        except Exception:
+            return "Error"
+    
+    def _send_discord(self, steps, aborted=False):
+        """Sendet break_stats an Discord"""
         
-        if not self.notify or not self.notify.is_enabled:
-            print("\n📱 Discord: Übersprungen (nicht konfiguriert)")
+        if not self.notify.is_enabled:
+            print("\n📱 Discord: Übersprungen")
             return
         
-        # Pausendauer berechnen
-        if self.pause_start_time and self.pause_end_time:
-            duration = self.pause_end_time - self.pause_start_time
-            duration_minutes = int(duration.total_seconds() // 60)
-            duration_seconds = int(duration.total_seconds() % 60)
-        else:
-            duration_minutes = self.test_duration // 60
-            duration_seconds = 0
+        # Dauer berechnen
+        pause_end = datetime.now()
+        duration = pause_end - self.pause_start_time
+        duration_minutes = int(duration.total_seconds() // 60)
         
-        # Durchschnittliche Rate
-        total_seconds = duration_minutes * 60 + duration_seconds
-        if total_seconds > 0:
-            steps_per_minute = steps / (total_seconds / 60)
-        else:
-            steps_per_minute = 0
+        # Kalorien und Distanz berechnen
+        # Annahme: ~0.04 kcal/Schritt, ~0.7m/Schritt
+        calories = int(steps * 0.04)
+        distance = int(steps * 0.7)
         
-        # Aktivitäts-Level bestimmen
-        if steps == 0:
-            activity_level = "😴 Keine Bewegung"
-            activity_emoji = "😴"
-        elif steps < 50:
-            activity_level = "🧘 Wenig aktiv"
-            activity_emoji = "🧘"
-        elif steps < 200:
-            activity_level = "🚶 Moderat aktiv"
-            activity_emoji = "🚶"
-        elif steps < 500:
-            activity_level = "🏃 Aktiv"
-            activity_emoji = "🏃"
-        else:
-            activity_level = "🏆 Sehr aktiv!"
-            activity_emoji = "🏆"
-        
-        print(f"\n📱 Sende Discord-Nachricht...")
+        print(f"\n📱 Sende Discord (break_stats)...")
         
         try:
-            # Versuche break_stats zu senden
+            # Nutze das break_stats Template
             self.notify.send_break_stats(
+                pause_number=1,  # Test = Pause #1
                 steps=steps,
-                duration_minutes=duration_minutes,
-                duration_seconds=duration_seconds,
-                steps_per_minute=round(steps_per_minute, 1),
-                activity_level=activity_level,
-                activity_emoji=activity_emoji,
+                calories=calories,
+                distance=distance,
                 aborted=aborted
             )
-            print(f"✅ Discord: break_stats gesendet!")
-            print(f"   🚶 Schritte: {steps}")
-            print(f"   ⏱️  Dauer: {duration_minutes}:{duration_seconds:02d}")
-            print(f"   📈 Rate: {steps_per_minute:.1f}/min")
-            print(f"   {activity_level}")
-        
-        except AttributeError:
-            # Fallback: Manuelle Nachricht
-            print("⚠️  send_break_stats() nicht gefunden, sende manuell...")
-            self._send_manual_discord(steps, duration_minutes, duration_seconds, 
-                                      steps_per_minute, activity_level, aborted)
-        
+            print(f"✅ Gesendet!")
         except Exception as e:
-            print(f"❌ Discord-Fehler: {e}")
-    
-    def _send_manual_discord(self, steps, duration_min, duration_sec, rate, activity, aborted):
-        """Fallback: Manuelle Discord-Nachricht"""
-        
-        status = "⚠️ Abgebrochen" if aborted else "✅ Abgeschlossen"
-        
-        message = f"""
-**🧪 Step Counter Test {status}**
-
-**📊 Pause-Statistiken:**
-🚶 Schritte: {steps}
-⏱️ Dauer: {duration_min}:{duration_sec:02d} min
-📈 Rate: {rate:.1f} Schritte/min
-🎯 Aktivität: {activity}
-
-
-**💡 Bewertung:**
-{"Gut gemacht! Bewegung während der Pause ist wichtig! 💪" if steps > 50 else "Tipp: Versuche dich mehr zu bewegen! 🚶"}
-"""
-        
-        try:
-            # Versuche generische send-Methode
-            if hasattr(self.notify, 'send'):
-                self.notify.send(message)
-                print("✅ Manuelle Discord-Nachricht gesendet")
-            elif hasattr(self.notify, 'send_message'):
-                self.notify.send_message(message)
-                print("✅ Manuelle Discord-Nachricht gesendet")
-            else:
-                print("⚠️  Keine passende Discord-Methode gefunden")
-        except Exception as e:
-            print(f"❌ Manueller Discord-Fehler: {e}")
+            print(f"❌ Fehler: {e}")
     
     def _print_summary(self, final_steps):
-        """Gibt Test-Zusammenfassung aus"""
+        """Zusammenfassung"""
         
-        if self.pause_start_time and self.pause_end_time:
-            duration = self.pause_end_time - self.pause_start_time
-            duration_mins = duration.total_seconds() / 60
+        duration_mins = self.test_duration // 60
+        
+        print(f"\n📊 ZUSAMMENFASSUNG:")
+        print(f"   ⏱️  {duration_mins} Minuten")
+        print(f"   🚶 {final_steps} Schritte")
+        print(f"   📈 {final_steps / duration_mins:.1f} Schritte/min")
+        
+        # Ping-Statistiken
+        if self.ping_values:
+            avg_ping = sum(self.ping_values) / len(self.ping_values)
+            min_ping = min(self.ping_values)
+            max_ping = max(self.ping_values)
+            
+            print(f"\n📡 VERBINDUNG:")
+            print(f"   Ø Ping: {avg_ping:.1f}ms")
+            print(f"   Min: {min_ping:.1f}ms")
+            print(f"   Max: {max_ping:.1f}ms")
+            print(f"   Timeouts: {self.timeout_count}")
+            
+            # Bewertung
+            if avg_ping < 100 and self.timeout_count == 0:
+                print(f"   ✅ Exzellente Verbindung!")
+            elif avg_ping < 200 and self.timeout_count < 5:
+                print(f"   ⚡ Gute Verbindung")
+            else:
+                print(f"   ⚠️  Instabile Verbindung - näher am Router bleiben!")
         else:
-            duration_mins = self.test_duration / 60
+            print(f"\n📡 VERBINDUNG: ⚠️  Keine Daten (nur Timeouts: {self.timeout_count})")
         
-        avg_rate = (final_steps / duration_mins) if duration_mins > 0 else 0
-        
-        print("\n📊 TEST ZUSAMMENFASSUNG:")
-        print(f"   ⏱️  Testdauer: {int(duration_mins)} Minuten")
-        print(f"   📡 Sensor: {self.step_counter.sensor_type or 'Dummy'}")
-        print(f"   🚶 Gesamtschritte: {final_steps}")
-        print(f"   📈 Durchschnitt: {avg_rate:.1f} Schritte/Minute")
-        
-        if self.steps_per_interval:
-            max_delta = max(self.steps_per_interval)
-            print(f"   🏃 Max. Schritte/Intervall: {max_delta}")
-        
-        # Aktivitäts-Bewertung
-        print("\n🎯 AKTIVITÄTS-BEWERTUNG:")
-        if final_steps == 0:
-            print("   ⚠️  Keine Schritte erkannt")
-            print("   💡 Prüfe: Ist der Sensor korrekt verbunden?")
-            print("   💡 Prüfe: Wurde das Gerät bewegt?")
-        elif final_steps < 50:
-            print("   😴 Wenig Aktivität")
-        elif final_steps < 200:
-            print("   🚶 Moderate Aktivität")
-        elif final_steps < 500:
-            print("   🏃 Gute Aktivität!")
-        else:
-            print("   🏆 Sehr aktiv! Toll gemacht!")
-        
-        # Hardware-Status
-        print("\n🔧 HARDWARE STATUS:")
-        if self.step_counter.sensor_type == "BMA400":
-            print("   ✅ BMA400 Hardware-Schrittzähler: Funktioniert")
-        elif self.step_counter.sensor_type == "IMU":
-            print("   ⚠️  IMU Software-Schrittzähler: Aktiv (Fallback)")
-            print("   💡 BMA400 wäre genauer - prüfe Verfügbarkeit")
-        else:
-            print("   ❌ Kein Sensor: Dummy-Modus aktiv")
-        
-        # Discord Status
-        print("\n📱 DISCORD STATUS:")
-        if self.notify and self.notify.is_enabled:
-            print("   ✅ break_stats wurde gesendet")
-        else:
-            print("   ⚠️  Discord nicht konfiguriert")
-        
-        print("\n💡 TEST-TIPPS:")
-        print("   1. Ruhig halten → Keine Schritte")
-        print("   2. Langsam gehen → 1-2 Schritte/Sekunde")
-        print("   3. Schnell gehen → 2-3 Schritte/Sekunde")
-        print("   4. Auf/Ab bewegen → Simuliert Schritte")
-        
-        print("\n")
+        print()
     
     def _cleanup(self):
         """Cleanup"""
@@ -330,74 +225,18 @@ class StepCounterTest:
             self.step_counter.stop()
         except:
             pass
-        print("✅ Test beendet\n")
-
-
-def quick_test():
-    """Schnelltest (1 Minute) mit Discord"""
-    print("\n🧪 QUICK TEST - 1 Minute")
-    print("="*40)
-    
-    counter = StepCounter()
-    
-    # Discord
-    notify = None
-    if DISCORD_AVAILABLE:
-        notify = NotificationService()
-    
-    counter.start()
-    start_time = datetime.now()
-    
-    print("🚶 Bewege das Gerät für 60 Sekunden...")
-    print("   Aktueller Stand wird alle 5 Sekunden angezeigt\n")
-    
-    for i in range(12):  # 12 x 5 Sekunden = 60 Sekunden
-        time.sleep(5)
-        steps = counter.read()
-        print(f"   [{(i+1)*5:2d}s] Schritte: {steps}")
-    
-    end_time = datetime.now()
-    final = counter.stop()
-    
-    print(f"\n✅ Ergebnis: {final} Schritte in 1 Minute")
-    print(f"📈 Rate: {final} Schritte/Minute")
-    
-    # Discord senden
-    if notify and notify.is_enabled:
-        print(f"\n📱 Sende Discord-Nachricht...")
-        try:
-            notify.send_break_stats(
-                steps=final,
-                duration_minutes=1,
-                duration_seconds=0,
-                steps_per_minute=final,
-                activity_level="🧪 Quick Test",
-                activity_emoji="🧪",
-                aborted=False
-            )
-            print("✅ Discord gesendet!")
-        except Exception as e:
-            print(f"⚠️  Discord-Fehler: {e}")
-    
-    print("\n")
+        print("✅ Beendet\n")
 
 
 if __name__ == "__main__":
     print("\n🧪 Step Counter Test")
-    print("=" * 40)
+    print("⚠️  STRG+C zum Abbrechen\n")
     
-    # Argumente prüfen
-    if len(sys.argv) > 1 and sys.argv[1] == '--quick':
-        quick_test()
-    else:
-        print("⚠️  Drücke STRG+C zum Abbrechen")
-        print("💡 Tipp: Nutze --quick für 1-Minuten-Test\n")
-        
-        test = StepCounterTest()
-        
-        try:
-            test.run_test()
-        except KeyboardInterrupt:
-            test._cleanup()
-        finally:
-            test._cleanup()
+    test = StepCounterTest()
+    
+    try:
+        test.run_test()
+    except KeyboardInterrupt:
+        test._cleanup()
+    finally:
+        test._cleanup()
