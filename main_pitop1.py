@@ -7,8 +7,10 @@ KEIN Schrittzähler (läuft auf PiTop 2)
 
 import signal
 import sys
+import time
 from time import sleep
 from datetime import datetime
+import config
 from hardware import Button1, Button2, LED, Buzzer, CO2Sensor
 from services.timer_service import TimerService
 from services.notification_service import NotificationService
@@ -28,9 +30,9 @@ class LearningSession:
         self.co2 = CO2Sensor()        # I2C 0x5A automatisch
         
         # Services
-        self.timer = TimerService(self._get_db(), NotificationService())
         self.notify = NotificationService()
         self.db = self._get_db()
+        self.timer = TimerService(self.db, self.notify)
         
         # State Machine
         self.state = "IDLE"
@@ -187,8 +189,6 @@ class LearningSession:
         print("👣 PiTop 2 zählt jetzt Schritte...\n")
         
         break_duration = config.BREAK_DURATION
-        start_time = sleep.__doc__  # Trick zur Zeitmessung
-        import time
         start_time = time.time()
         
         try:

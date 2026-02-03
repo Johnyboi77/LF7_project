@@ -11,22 +11,23 @@ Das System motiviert durch strukturierte 30-Min-Lernphasen mit 10-Min-Aktivpause
 
 🚀 Funktionsweise
 📋 Kompletter Ablauf
-text
-┌─────────────────────────────────────────────────┐
+
+────────────────────────────────────────────────┐
 │  1️⃣  SESSION START                              │
 ├─────────────────────────────────────────────────┤
 │  👉 Button 1 kurz drücken                       │
 │  ✅ Arbeitsphase startet (30 Min)               │
 │  📱 Discord: "Hey Alicia! Lerneinheit gestartet"│
-│  🟦 Timer läuft, LED leuchtet                   │
-│  🌡️ CO2-Überwachung aktiv                       │
+│  💡 LED leuchtet (Arbeitsphase aktiv)           │
+│  🌡️  CO2-Überwachung aktiv                      │
 └─────────────────────────────────────────────────┘
               ⬇️  [30 Minuten vergehen]
 ┌─────────────────────────────────────────────────┐
 │  2️⃣  ARBEITSPHASE BEENDET                       │
 ├─────────────────────────────────────────────────┤
 │  ⏰ Timer abgelaufen                            │
-│  🔊 Langer Piepton (Buzzer)                     │
+│  🔊 Langer Piepton (Buzzer 2s)                  │
+│  💡 LED aus                                     │
 │  💡 Optionale Pause möglich                     │
 └─────────────────────────────────────────────────┘
               ⬇️
@@ -35,15 +36,18 @@ text
 ├─────────────────────────────────────────────────┤
 │  👉 Button 2 kurz drücken                       │
 │  ✅ Pausenphase startet (10 Min)                │
-│  🟩 LED blinkt, Timer läuft                     │
+│  💡 LED blinkt langsam (Pause-Modus)            │
 │  🚶 PiTop 2: Schrittzähler aktiviert            │
 │  📊 Datenbank: Status = 'break'                 │
+│  📱 Discord: "Arbeitsphase beendet"             │
 └─────────────────────────────────────────────────┘
-              ⬇️  [10 Minuten vergehen]
+              ⬇️  [10 Minuten vergehen - beide PiTops synchron]
 ┌─────────────────────────────────────────────────┐
 │  4️⃣  PAUSE BEENDET                              │
 ├─────────────────────────────────────────────────┤
 │  ⏰ Pause abgelaufen                            │
+│  💡 LED aus                                     │
+│  🔊 Kurzer Beep                                 │
 │  📱 Discord: "1.247 Schritte, 62 kcal, 935m"    │
 │  💾 Daten in Supabase gespeichert               │
 │  🔄 Bereit für nächste Arbeitsphase             │
@@ -61,6 +65,8 @@ text
 ├─────────────────────────────────────────────────┤
 │  👉 Button 1 für 5+ Sekunden halten             │
 │  🛑 Session wird beendet                        │
+│  💡 LED aus                                     │
+│  🔊 Langer Piepton (2s)                         │
 │  📊 Kompletter Report wird erstellt:            │
 │     • Gesamte Lernzeit: 90 Min                  │
 │     • Gesamte Pausenzeit: 30 Min                │
@@ -73,19 +79,49 @@ text
 │  🎉 "Tolle Arbeit, Alicia!"                     │
 └─────────────────────────────────────────────────┘
 🎮 Steuerung
-Aktion	Funktion
-Button 1 kurz	🎓 Arbeitsphase starten/fortsetzen
-Button 1 lang (5s)	🛑 Session beenden (jederzeit)
-Button 2 kurz	☕ Pause starten
-Button 1+2 doppelt	↩️ Letzte Aktion stornieren
-🌡️ CO2-Überwachung (Luftqualität)
-Das System überwacht kontinuierlich die Luftqualität und warnt bei schlechten Bedingungen:
+Aktion	                Funktion
+Button 1 kurz	        🎓 Arbeitsphase starten/fortsetzen
+Button 1 lang (5s)	    🛑 Session beenden (jederzeit)
+Button 2 kurz	        ☕ Pause starten
+Button 1+2 doppelt	    ↩️ Letzte Aktion stornieren
 
-CO2-Level	Status	Reaktion
-< 600 ppm	💚 Ausgezeichnet	Keine Aktion
-600-800 ppm	💛 Warning	🔴 LED leuchtet
-> 800 ppm	🚨 Kritisch	🔴 LED blinkt + 🔊 Doppel-Beep + 📱 Discord-Warnung
-💡 Tipp: Gute Luftqualität = bessere Konzentration! Regelmäßig lüften.
+>CO2-Überwachung
+Kontinuierlich Überprüfung derLuftqualität während der Arbeitsphase und warnt bei schlechten Bedingungen:
+
+CO2-Level	    Status	            Visuell	                        Akustisch	              Discord
+< 600 ppm	    💚 Ausgezeichnet	LED aus/an (je nach Phase)	    Keine Aktion	          -
+600-800 ppm	    💛 Warning	        🔴 LED leuchtet dauerhaft	    Stille	                 ⚠️ Warnung (alle 5 Min)
+> 800 ppm	    🚨 Kritisch	        🔴 LED blinkt schnell (0.1s)	🔊 Buzzer piept 2x	    🆘 @Ping Warnung
+
+💡 LED-Status im Detail:
+Situation	            LED-Verhalten
+Arbeitsphase aktiv	    💚 Leuchtet dauerhaft
+Pausenphase aktiv	    🟡 Blinkt langsam (0.5s)
+CO2 Warning	            🔴 Leuchtet dauerhaft
+CO2 Kritisch	        🔴 Blinkt schnell (0.1s)
+System IDLE	            ⚫ Aus
+
+🔊 Buzzer-Signale:
+Event	            Signal
+Session Start	    Kurzer Beep (0.2s)
+Pause Start	        Kurzer Beep (0.2s)
+Pause Ende	        Kurzer Beep (0.1s)
+Arbeitsphase Ende	Langer Beep (1.0s)
+Session Ende	    Sehr langer Beep (2.0s)
+CO2 Kritisch	    Doppel-Beep Pattern (3x wiederholt)
+
+📱 Discord-Benachrichtigungen:
+CO2-Status	        Benachrichtigung	    Frequenz
+Warning (600-800)	⚠️ Info ohne Ping	    Alle 5 Minuten
+Critical (>800)	    🆘 @Mention Ping	    Sofort + alle 5 Min
+Normal wieder	    ✅ Entwarnung	       Bei Rückkehr zu normal
+
+💡 Tipp
+Gute Luftqualität = bessere Konzentration!
+
+Bei Warning: Fenster öffnen
+Bei Critical: Sofort lüften und Pause einlegen
+Optimal: CO2 < 600 ppm
 
 🔧 Technische Details
 🖥️ Hardware-Setup
