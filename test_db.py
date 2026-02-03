@@ -1,70 +1,50 @@
 #!/usr/bin/env python3
-"""
-test_db.py - Schneller Supabase Verbindungstest (Standalone)
-"""
+"""Supabase Verbindungstest"""
 
 import os
 import sys
-from dotenv import load_dotenv
+
+# ⚠️ WICHTIG: Device Override MUSS VOR import config stehen!
+os.environ['DEVICE_OVERRIDE'] = 'pitop1'
+
+import config
+from supabase import create_client
+import uuid
 
 def main():
     print("\n" + "="*50)
     print("🔍 SUPABASE VERBINDUNGSTEST")
     print("="*50 + "\n")
     
-    # 1. .env laden (hardcoded)
-    env_file = '.env.pitop1'  # Oder '.env.pitop2' für PiTop 2
-    
-    if not os.path.exists(env_file):
-        print(f"❌ {env_file} nicht gefunden!")
-        print(f"   Verfügbare .env Dateien:")
-        for f in os.listdir('.'):
-            if f.startswith('.env'):
-                print(f"   - {f}")
+    if not config.SUPABASE_URL or not config.SUPABASE_KEY:
+        print("❌ SUPABASE Credentials fehlen!")
         return 1
     
-    load_dotenv(env_file)
-    print(f"✅ {env_file} geladen")
+    print(f"✅ URL: {config.SUPABASE_URL}")
+    print(f"✅ KEY: {config.SUPABASE_KEY[:20]}...")
+    print(f"✅ Device: {config.DEVICE_ID}")
     
-    # 2. Credentials aus Environment holen
-    SUPABASE_URL = os.getenv('SUPABASE_URL')
-    SUPABASE_KEY = os.getenv('SUPABASE_KEY')
-    
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        print("❌ SUPABASE_URL oder SUPABASE_KEY fehlt in .env!")
-        return 1
-    
-    print(f"✅ URL: {SUPABASE_URL}")
-    print(f"✅ KEY: {SUPABASE_KEY[:20]}...")
-    
-    # 3. Client erstellen
     try:
-        from supabase import create_client
-        client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("✅ Supabase Client erstellt")
+        client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
+        print("✅ Client erstellt")
     except Exception as e:
-        print(f"❌ Client-Fehler: {e}")
+        print(f"❌ Fehler: {e}")
         return 1
     
-    # 4. Tabellen testen
+    # Tabellen testen
     print("\n📊 Teste Tabellen...")
-    tables = ['sessions', 'co2_measurements', 'breakdata']
-    
-    for table in tables:
+    for table in ['sessions', 'co2_measurements', 'breakdata']:
         try:
             result = client.table(table).select("id").limit(1).execute()
-            count = len(result.data) if result.data else 0
-            print(f"  ✅ {table}: OK ({count} Einträge)")
+            print(f"  ✅ {table}: OK")
         except Exception as e:
             print(f"  ❌ {table}: {e}")
     
-    # 5. Schreib-Test
+    # Schreib-Test
     print("\n📝 Teste Schreiben...")
     try:
-        import uuid
         test_id = str(uuid.uuid4())
         
-        # Insert
         client.table('sessions').insert({
             'session_id': test_id,
             'device_id': 'test',
@@ -73,18 +53,13 @@ def main():
         }).execute()
         print("  ✅ INSERT OK")
         
-        # Delete
         client.table('sessions').delete().eq('session_id', test_id).execute()
-        print("  ✅ DELETE OK (cleanup)")
+        print("  ✅ DELETE OK")
         
     except Exception as e:
-        print(f"  ❌ Schreib-Fehler: {e}")
-        return 1
+        print(f"  ❌ Fehler: {e}")
     
-    # Erfolg!
-    print("\n" + "="*50)
-    print("🎉 SUPABASE VERBINDUNG ERFOLGREICH!")
-    print("="*50 + "\n")
+    print("\n🎉 VERBINDUNG ERFOLGREICH!\n")
     return 0
 
 if __name__ == "__main__":

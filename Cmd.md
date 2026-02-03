@@ -31,7 +31,7 @@ ssh pi@
 # Falls altes Projekt vorhanden → löschen
 
 rm -rf ~/LF7_project
-#Alte Projekte anderer Gruppen auch löschen!
+# --> um Alte Projekte anderer Gruppen auch löschen!
 
 # 4.3 Altes Archiv auf Laptop löschen (zweites Terminal!)
 cd /mnt/c/Users/knigh

@@ -1,80 +1,103 @@
 #!/usr/bin/env python3
 """
-test_db.py - Schneller Supabase Verbindungstest
+Zentrale Konfiguration - Lädt automatisch .env.pitop1 oder .env.pitop2
+basierend auf dem Script-Namen oder DEVICE_OVERRIDE
 """
 
 import os
 import sys
+from dotenv import load_dotenv
 
-# ⚠️ WICHTIG: Device Override MUSS VOR import config stehen!
-os.environ['DEVICE_OVERRIDE'] = 'pitop1'
-
-# JETZT erst config importieren (lädt automatisch .env.pitop1)
-import config
-
-def main():
-    print("\n" + "="*50)
-    print("🔍 SUPABASE VERBINDUNGSTEST")
-    print("="*50 + "\n")
+# ===== .ENV LADEN =====
+def load_env_for_device():
+    """Lädt .env automatisch basierend auf Script-Namen oder Override"""
     
-    # 1. Credentials prüfen (aus config.py)
-    if not config.SUPABASE_URL or not config.SUPABASE_KEY:
-        print("❌ SUPABASE_URL oder SUPABASE_KEY fehlt in .env!")
-        return 1
+    # 1. PRIORITÄT: Environment Variable Override
+    if os.environ.get('DEVICE_OVERRIDE'):
+        device = os.environ.get('DEVICE_OVERRIDE')
+        print(f"✅ Device Override: {device}")
     
-    print(f"✅ URL: {config.SUPABASE_URL}")
-    print(f"✅ KEY: {config.SUPABASE_KEY[:20]}...")
-    print(f"✅ Device: {config.DEVICE_ID}")
-    
-    # 2. Client erstellen
-    try:
-        from supabase import create_client
-        client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
-        print("✅ Supabase Client erstellt")
-    except Exception as e:
-        print(f"❌ Client-Fehler: {e}")
-        return 1
-    
-    # 3. Tabellen testen
-    print("\n📊 Teste Tabellen...")
-    tables = ['sessions', 'co2_measurements', 'breakdata']
-    
-    for table in tables:
-        try:
-            result = client.table(table).select("id").limit(1).execute()
-            count = len(result.data) if result.data else 0
-            print(f"  ✅ {table}: OK ({count} Einträge)")
-        except Exception as e:
-            print(f"  ❌ {table}: {e}")
-    
-    # 4. Schreib-Test
-    print("\n📝 Teste Schreiben...")
-    try:
-        import uuid
-        test_id = str(uuid.uuid4())
+    else:
+        # 2. Script-Name extrahieren (z.B. "main_pitop1.py" → "pitop1")
+        script_name = os.path.basename(sys.argv[0])
         
-        # Insert
-        client.table('sessions').insert({
-            'session_id': test_id,
-            'device_id': 'test',
-            'user_name': 'TEST',
-            'timer_status': 'test'
-        }).execute()
-        print("  ✅ INSERT OK")
-        
-        # Delete
-        client.table('sessions').delete().eq('session_id', test_id).execute()
-        print("  ✅ DELETE OK (cleanup)")
-        
-    except Exception as e:
-        print(f"  ❌ Schreib-Fehler: {e}")
-        return 1
+        if 'pitop1' in script_name:
+            device = 'pitop1'
+        elif 'pitop2' in script_name:
+            device = 'pitop2'
+        else:
+            # 3. Fallback: Via Command-Line Argument
+            for arg in sys.argv:
+                if arg.startswith('--device='):
+                    device = arg.split('=')[1]
+                    break
+            else:
+                # Kein Device erkannt
+                print("❌ Konnte Device nicht erkennen!")
+                print(f"   Script-Name: {script_name}")
+                print("   Erwartet: main_pitop1.py oder main_pitop2.py")
+                print("   Oder nutze: --device=pitop1")
+                print("   Oder setze: DEVICE_OVERRIDE=pitop1")
+                sys.exit(1)
     
-    # Erfolg!
-    print("\n" + "="*50)
-    print("🎉 SUPABASE VERBINDUNG ERFOLGREICH!")
-    print("="*50 + "\n")
-    return 0
+    # .env File laden
+    env_file = f'.env.{device}'
+    
+    if os.path.exists(env_file):
+        load_dotenv(env_file)
+        print(f"✅ Loaded {env_file}")
+        return device
+    else:
+        print(f"❌ {env_file} nicht gefunden!")
+        sys.exit(1)
 
-if __name__ == "__main__":
-    sys.exit(main())
+# Config laden
+CURRENT_DEVICE = load_env_for_device()
+
+# ===== AUS .ENV LADEN =====
+DEVICE_ID = os.getenv('DEVICE_ID', CURRENT_DEVICE)
+USER_NAME = os.getenv('USER_NAME', 'Alicia')
+USER_WEIGHT = int(os.getenv('USER_WEIGHT', '55'))
+USER_HEIGHT = int(os.getenv('USER_HEIGHT', '165'))
+
+SUPABASE_URL = os.getenv('SUPABASE_URL', '')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY', '')
+DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL', '')
+
+# ===== HARDCODED KONSTANTEN =====
+
+# Timer Durations
+WORK_DURATION = 30 * 60      # 30 Minuten
+BREAK_DURATION = 10 * 60     # 10 Minuten
+
+# Button Settings
+SHORT_PRESS_MAX = float(os.getenv('SHORT_PRESS_MAX', '2.0'))
+END_SESSION_PRESS = float(os.getenv('END_SESSION_PRESS', '5.0'))
+DOUBLE_CLICK_INTERVAL = float(os.getenv('DOUBLE_CLICK_INTERVAL', '0.5'))
+
+# CO2 Thresholds
+CO2_WARNING_THRESHOLD = int(os.getenv('CO2_WARNING_THRESHOLD', '600'))
+CO2_CRITICAL_THRESHOLD = int(os.getenv('CO2_CRITICAL_THRESHOLD', '800'))
+CO2_MEASUREMENT_INTERVAL = int(os.getenv('CO2_MEASUREMENT_INTERVAL', '120'))
+CO2_CHECK_INTERVAL = int(os.getenv('CO2_CHECK_INTERVAL', '30'))
+
+# LED
+LED_BLINK_FAST = float(os.getenv('LED_BLINK_FAST', '0.1'))
+
+# Buzzer Patterns
+BUZZER_CO2_DURATION = float(os.getenv('BUZZER_CO2_DURATION', '0.2'))
+BUZZER_CO2_INTERVAL = float(os.getenv('BUZZER_CO2_INTERVAL', '0.3'))
+BUZZER_CO2_REPETITIONS = int(os.getenv('BUZZER_CO2_REPETITIONS', '5'))
+BUZZER_TIMER_DURATION = float(os.getenv('BUZZER_TIMER_DURATION', '2.0'))
+
+# Movement Tracking
+CALORIES_PER_STEP = float(os.getenv('CALORIES_PER_STEP', '0.05'))
+METERS_PER_STEP = float(os.getenv('METERS_PER_STEP', '0.75'))
+
+# Monitoring Intervals
+STEP_UPDATE_INTERVAL = int(os.getenv('STEP_UPDATE_INTERVAL', '5'))
+PAUSE_POLL_INTERVAL = int(os.getenv('PAUSE_POLL_INTERVAL', '1'))
+
+# ===== DEBUG OUTPUT =====
+if __name__ != '__main__':
+    print(f"🔧 CONFIG: {DEVICE_ID} - {USER_NAME}")

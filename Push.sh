@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Alle Scripte angepasst"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') -Fix an Config.py"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"

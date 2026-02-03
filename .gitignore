@@ -1,6 +1,6 @@
 ./Push.sh
 .env
-Info.py
+Cmd.md
 
 node_modules/
 pycache/
