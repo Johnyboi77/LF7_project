@@ -5,12 +5,17 @@ Schnelldurchlauf: 10s Pause
 DB speichert hochgerechnete Werte (x60)
 """
 
-import signal
+import os
 import sys
+
+# ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
+if '--device=' not in ' '.join(sys.argv):
+    os.environ['DEVICE_OVERRIDE'] = 'pitop2'  # Default für diesen Test
+
+import signal
 import time
 from datetime import datetime
 from threading import Thread
-
 import config
 from hardware import StepCounter
 from services.notification_service import NotificationService

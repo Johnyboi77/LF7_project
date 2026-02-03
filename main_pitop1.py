@@ -7,6 +7,11 @@ KEIN Schrittzähler (läuft auf PiTop 2)
 
 import signal
 import sys
+
+# ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
+if '--device=' not in ' '.join(sys.argv):
+    os.environ['DEVICE_OVERRIDE'] = 'pitop1'  # Default für diese File
+
 import time
 from time import sleep
 from datetime import datetime

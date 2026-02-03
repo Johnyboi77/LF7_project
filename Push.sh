@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') -Fix an Config.py"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Magie mit Requirements.."
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"

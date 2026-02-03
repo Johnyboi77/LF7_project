@@ -63,6 +63,7 @@ cd ~/LF7_project
 rm ~/LF7_project.tar.gz
 
 # 9. Virtual Environment auf PiTop erstellen
+# erst 'deactivate'
 python3 -m venv venv
 source venv/bin/activate
 # Ausgabe sollte jetzt (venv) vor dem Pfad zeigen
@@ -70,6 +71,7 @@ source venv/bin/activate
 ### 10. Python-Pakete installieren ###
 pip install --upgrade pip
 pip install -r requirements.txt
+sudo apt-get install python3-pitop python3-gpiozero
 
 # Terminal 1 - PiTop 1 (Arbeitsplatz)
 ssh pi@ ...

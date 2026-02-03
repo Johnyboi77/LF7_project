@@ -3,6 +3,12 @@
 🧪 LED & CO2 Test - 10 Minuten kontinuierliche Überwachung
 Testet: CO2-Sensor, LED-Warnung, Discord-Benachrichtigungen
 """
+import os
+import sys
+
+# ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
+if '--device=' not in ' '.join(sys.argv):
+    os.environ['DEVICE_OVERRIDE'] = 'pitop1'  # Default für diesen Test
 
 import time
 from datetime import datetime

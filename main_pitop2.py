@@ -4,23 +4,21 @@ pi-top 2 - Pausenstation mit Schrittzähler
 AUTOMATISCHER StepCounter-Start via Datenbank-Polling
 """
 
+
+
+
+# ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
+if '--device=' not in ' '.join(sys.argv):
+    os.environ['DEVICE_OVERRIDE'] = 'pitop2'  # Default für diesen Test
+
 import signal
-import sys
 import time
 from datetime import datetime
 from threading import Thread, Event
-
-# ✅ Config importieren
 import config
-
-# ✅ Hardware (NUR StepCounter für PiTop 2!)
 from hardware import StepCounter
-
-# ✅ Services
 from services.timer_service import TimerService
 from services.notification_service import NotificationService
-
-# ✅ Database
 from database.supabase_manager import SupabaseManager
 
 

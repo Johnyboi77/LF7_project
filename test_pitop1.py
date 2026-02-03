@@ -5,12 +5,17 @@ Schnelldurchlauf: 30s Arbeit, 10s Pause
 DB speichert hochgerechnete Werte (x60)
 """
 
-import signal
+import os
 import sys
+
+# ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
+if '--device=' not in ' '.join(sys.argv):
+    os.environ['DEVICE_OVERRIDE'] = 'pitop1'  # Default für diesen Test
+
+import signal
 import time
 from time import sleep
 from datetime import datetime
-
 import config
 from hardware import Button1, Button2, LED, Buzzer, CO2Sensor
 from services.timer_service import TimerService
