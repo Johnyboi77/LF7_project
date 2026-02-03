@@ -93,30 +93,7 @@ exit
 #### Falls Daten neu generiert werden müssen
 rm -rf LF7_project
 
-### Outlier 
-
-Zur Konfig wegen Supabase:
-
-✅ resolv.conf sieht gut aus!
-Lass uns mit Python testen (ohne extra Pakete zu installieren):
-
-Test 1: DNS mit Python
-bash
-# DNS direkt mit Python testen
-python3 -c "import socket; print(socket.gethostbyname('google.com'))"
-Test 2: Ping nochmal versuchen
-bash
-ping -c 2 google.com
-Test 3: Supabase URL testen
-bash
-python3 -c "import socket; print(socket.gethostbyname('lbaeftxthrpajcgdxdcz.supabase.co'))"
-Führe alle 3 aus und zeig mir was passiert!
-
-Wenn Python die DNS-Auflösung schafft, sollte auch dein test_db.py funktionieren:
-
-bash
-# Dann direkt dein Script testen
+# Pythen Cache löschen
 cd /mnt/c/Users/knigh/LF7_project
-source venv/bin/activate
-python test_db.py
-🎯 Zeig mir die Ausgabe!
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+find . -name "*.pyc" -delete

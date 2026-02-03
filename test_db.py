@@ -5,49 +5,37 @@ test_db.py - Schneller Supabase Verbindungstest
 
 import os
 import sys
-from dotenv import load_dotenv
 
-# Device Override für config.py
+# ⚠️ WICHTIG: Device Override MUSS VOR import config stehen!
 os.environ['DEVICE_OVERRIDE'] = 'pitop1'
+
+# JETZT erst config importieren (lädt automatisch .env.pitop1)
+import config
 
 def main():
     print("\n" + "="*50)
     print("🔍 SUPABASE VERBINDUNGSTEST")
     print("="*50 + "\n")
     
-    # 1. dotenv laden
-    try:
-        from dotenv import load_dotenv
-        for f in ['.env.pitop1', '.env.pitop2', '.env']:
-            if os.path.exists(f):
-                load_dotenv(f)
-                print(f"✅ {f} geladen")
-                break
-    except ImportError:
-        print("❌ python-dotenv fehlt!")
+    # 1. Credentials prüfen (aus config.py)
+    if not config.SUPABASE_URL or not config.SUPABASE_KEY:
+        print("❌ SUPABASE_URL oder SUPABASE_KEY fehlt in .env!")
         return 1
     
-    # 2. Credentials prüfen
-    url = os.getenv('SUPABASE_URL')
-    key = os.getenv('SUPABASE_KEY')
+    print(f"✅ URL: {config.SUPABASE_URL}")
+    print(f"✅ KEY: {config.SUPABASE_KEY[:20]}...")
+    print(f"✅ Device: {config.DEVICE_ID}")
     
-    if not url or not key:
-        print("❌ SUPABASE_URL oder SUPABASE_KEY fehlt!")
-        return 1
-    
-    print(f"✅ URL: {url}")
-    print(f"✅ KEY: {key[:20]}...")
-    
-    # 3. Client erstellen
+    # 2. Client erstellen
     try:
         from supabase import create_client
-        client = create_client(url, key)
+        client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
         print("✅ Supabase Client erstellt")
     except Exception as e:
         print(f"❌ Client-Fehler: {e}")
         return 1
     
-    # 4. Tabellen testen
+    # 3. Tabellen testen
     print("\n📊 Teste Tabellen...")
     tables = ['sessions', 'co2_measurements', 'breakdata']
     
@@ -59,7 +47,7 @@ def main():
         except Exception as e:
             print(f"  ❌ {table}: {e}")
     
-    # 5. Schreib-Test
+    # 4. Schreib-Test
     print("\n📝 Teste Schreiben...")
     try:
         import uuid
