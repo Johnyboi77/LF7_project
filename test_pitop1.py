@@ -315,6 +315,17 @@ class TestLearningSession:
             co2_level = self.co2.read()
             tvoc_level = self.co2.tvoc_level
             
+            # CO2-Wert in DB speichern!
+            if self.session_id and co2_level:
+                is_alarm = alarm_status in ["warning", "critical"]
+                self.db.log_co2(
+                    session_id=self.session_id,
+                    co2_level=co2_level,
+                    tvoc_level=tvoc_level,
+                    is_alarm=is_alarm,
+                    alarm_type=alarm_status if is_alarm else None
+            )
+
             # ===== CRITICAL (> 800 ppm) =====
             if alarm_status == "critical":
                 if not self.co2_alarm_active:
@@ -338,7 +349,7 @@ class TestLearningSession:
                     self.led.off()  # ✅ IMMER aus bei normalem CO2
         
         except Exception as e:
-            pass  # Ignoriere CO2-Fehler im Test
+            print(f"⚠️ CO2-Monitoring Fehler: {e}")
     
     # ===== MAIN LOOP =====
     

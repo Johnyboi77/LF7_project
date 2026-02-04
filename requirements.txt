@@ -1,5 +1,5 @@
 # requirements.txt - Learning Assistant
-#  >Benötigte Module
+# Benötigte Module
 
 # ===== HARDWARE (via System-Packages) =====
 # NICHT mit pip installieren! Stattdessen: (wsl)
@@ -8,11 +8,11 @@
 # ===== CO2 SENSOR =====
 adafruit-circuitpython-sgp30>=3.0.0
 
+# ===== I2C / SENSOREN =====
+smbus2>=0.4.2  # Für BMA456 Step Counter
+
 # ===== Core =====
 python-dotenv>=1.0.0
-
-# ===== I2C (optional - meist schon im System) =====
-# smbus2>=0.4.2  # Kommentiert - kommt mit python3-pitop
 
 # ===== Database =====
 supabase>=2.0.0

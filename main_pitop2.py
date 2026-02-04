@@ -213,8 +213,8 @@ class BreakStation:
                 'step_count': steps,
                 'calories_burned': calories,
                 'distance_meters': distance,
-                'timestamp': datetime.utcnow().isoformat(),
-                'device_id': config.DEVICE_ID
+                'device_id': config.DEVICE_ID,
+                'created_at': datetime.utcnow().isoformat(),
             }
             
             result = self.db.client.table('breakdata').insert(data).execute()
