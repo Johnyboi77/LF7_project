@@ -1,147 +1,280 @@
-Effektiver Lernen - Learning Assistant
+# Effektiver Lernen - Learning Assistant
 
 Ein intelligentes Lernsystem mit zwei PiTop 4 Geräten, das konzentriertes Arbeiten durch strukturierte Lern- und Pausenphasen fördert.
 
-🎯 Projektübersicht
+## 🎯 Projektübersicht
+
 Das Learning Assistant System nutzt zwei PiTop 4 Computer, um optimale Lernbedingungen zu schaffen:
 
-PiTop 1 (Arbeitsplatz): Timer-Steuerung, Luftqualitäts-Überwachung, Button-Kontrolle
-PiTop 2 (Pausenzone): Bewegungstracking während Pausen
+- **PiTop 1 (Arbeitsplatz):** Timer-Steuerung, Luftqualitäts-Überwachung, Button-Kontrolle
+- **PiTop 2 (Pausenzone):** Bewegungstracking während Pausen
+
 Das System motiviert durch strukturierte 30-Min-Lernphasen mit 10-Min-Aktivpausen und dokumentiert alle Daten für spätere Auswertung.
 
-🚀 Funktionsweise
-📋 Kompletter Ablauf
+## 🚀 Funktionsweise
 
-──────────────────────────────────────────────────┐
-│  1️⃣  SESSION START                              │
-├─────────────────────────────────────────────────┤
-│  👉 Button 1 kurz drücken                       │
-│  ✅ Arbeitsphase startet (30 Min)               │
-│  📱 Discord: "Hey Alicia! Lerneinheit gestartet"│         
-│  🌡️ CO2-Überwachung aktiv                      │
-└─────────────────────────────────────────────────┘
-              ⬇️  [30 Minuten vergehen]
+### 📋 Kompletter Ablauf
 ┌─────────────────────────────────────────────────┐
-│  2️⃣  ARBEITSPHASE BEENDET                       │
+│ 1️⃣ SESSION START │
 ├─────────────────────────────────────────────────┤
-│  ⏰ Timer abgelaufen                            │
-│  🔊 Langer Piepton (Buzzer 2s)                  │
-│  💡 Optionale Pause möglich                     │
+│ 👉 Button 1 kurz drücken │
+│ ✅ Arbeitsphase startet (30 Min) │
+│ 📱 Discord: "Hey Alicia! Lerneinheit gestartet"│
+│ 🌡️ CO2-Überwachung aktiv │
 └─────────────────────────────────────────────────┘
-              ⬇️
+⬇️ [30 Minuten vergehen]
 ┌─────────────────────────────────────────────────┐
-│  3️⃣  PAUSE STARTEN                              │
+│ 2️⃣ ARBEITSPHASE BEENDET │
 ├─────────────────────────────────────────────────┤
-│  👉 Button 2 kurz drücken                       │
-│  ✅ Pausenphase startet (10 Min)                │
-│  🚶 PiTop 2: Schrittzähler aktiviert            │
-│  📊 Datenbank: Status = 'break'                 │
-│  📱 Discord: "Arbeitsphase beendet"             │
+│ ⏰ Timer abgelaufen │
+│ 🔊 Langer Piepton (Buzzer 1s) │
+│ 💡 Pause kann gestartet werden │
 └─────────────────────────────────────────────────┘
-   ⬇️  [10 Minuten vergehen - beide PiTops synchron]
+⬇️
 ┌─────────────────────────────────────────────────┐
-│  4️⃣  PAUSE BEENDET                              │
+│ 3️⃣ PAUSE STARTEN │
 ├─────────────────────────────────────────────────┤
-│  ⏰ Pause abgelaufen                            │
-│  🔊 Kurzer Beep                                 │
-│  📱 Discord: "1.247 Schritte, 62 kcal, 935m"    │
-│  💾 Daten in Supabase gespeichert               │
-│  🔄 Bereit für nächste Arbeitsphase             │
+│ 👉 Button 2 kurz drücken │
+│ ✅ Pausenphase startet (10 Min) │
+│ 🚶 PiTop 2: Schrittzähler aktiviert │
+│ 📊 Datenbank: Status = 'break' │
+│ 📱 Discord: "Arbeitsphase beendet" │
 └─────────────────────────────────────────────────┘
-              ⬇️
+⬇️ [10 Minuten vergehen - beide PiTops synchron]
 ┌─────────────────────────────────────────────────┐
-│  5️⃣  WEITERE ZYKLEN                             │
+│ 4️⃣ PAUSE BEENDET │
 ├─────────────────────────────────────────────────┤
-│  🔁 Unbegrenzt viele Lern-/Pausenphasen         │
-│  📈 Alle Daten werden dokumentiert              │
+│ ⏰ Pause abgelaufen │
+│ 🔊 Kurzer Beep │
+│ 📱 Discord: "1.247 Schritte, 62 kcal, 935m" │
+│ 💾 Daten in Supabase gespeichert │
+│ 🔄 Bereit für nächste Arbeitsphase │
 └─────────────────────────────────────────────────┘
-              ⬇️
+⬇️
 ┌─────────────────────────────────────────────────┐
-│  6️⃣  SESSION BEENDEN                            │
+│ 5️⃣ WEITERE ZYKLEN │
 ├─────────────────────────────────────────────────┤
-│  👉 Button 1 für 5+ Sekunden halten             │
-│  🛑 Session wird beendet                        │
-│  🔊 Langer Piepton (2s)                         │
-│  📊 Kompletter Report wird erstellt:            │
-│     • Gesamte Lernzeit: 90 Min                  │
-│     • Gesamte Pausenzeit: 30 Min                │
-│     • Anzahl Pausen: 3                          │
-│     • Ø CO2: 542 ppm (💚 Ausgezeichnet)         │
-│     • Schritte gesamt: 3.741                    │
-│     • Kalorien: 187 kcal                        │
-│     • Distanz: 2,8 km                           │
-│  📱 Report zu Discord + Terminal                │
-│  🎉 "Tolle Arbeit, Alicia!"                     │
+│ 🔁 Unbegrenzt viele Lern-/Pausenphasen │
+│ 📈 Alle Daten werden dokumentiert │
 └─────────────────────────────────────────────────┘
-🎮 Steuerung
-Aktion	                Funktion
-Button 1 kurz	        🎓 Arbeitsphase starten/fortsetzen
-Button 1 lang (5s)	    🛑 Session beenden (jederzeit)
-Button 2 kurz	        ☕ Pause starten
-Button 1+2 doppelt	    ↩️ Letzte Aktion stornieren
+⬇️
+┌─────────────────────────────────────────────────┐
+│ 6️⃣ SESSION BEENDEN │
+├─────────────────────────────────────────────────┤
+│ 👉 Button 2 für 7 Sekunden halten │
+│ 🛑 Session wird beendet │
+│ 🔊 Langer Piepton (2s) │
+│ 📊 Kompletter Report wird erstellt: │
+│ • Gesamte Lernzeit: 90 Min │
+│ • Gesamte Pausenzeit: 30 Min │
+│ • Anzahl Pausen: 3 │
+│ • Ø CO2: 542 ppm (💚 Ausgezeichnet) │
+│ • Schritte gesamt: 3.741 │
+│ • Kalorien: 187 kcal │
+│ • Distanz: 2,8 km │
+│ 📱 Report zu Discord + Terminal │
+│ 🎉 "Tolle Arbeit, Alicia!" │
+└─────────────────────────────────────────────────┘
 
->CO2-Überwachung
-Kontinuierlich Überprüfung derLuftqualität während der Arbeitsphase und warnt bei schlechten Bedingungen:
+## 🎮 Steuerung
 
-CO2-Level	    Status	            Visuell	                        Akustisch	              Discord
-< 600 ppm	    💚 Ausgezeichnet	LED aus/an (je nach Phase)	    Keine Aktion	          -
-600-800 ppm	    💛 Warning	        🔴 LED leuchtet dauerhaft	    Stille	                 ⚠️ Warnung (alle 5 Min)
-> 800 ppm	    🚨 Kritisch	        🔴 LED leuchtet dauerhaft	    Buzzer piept 2x	         🆘 @Ping Warnung
+### Button-Übersicht
 
-💡 LED-Status im Detail:
-Situation	            LED-Verhalten
-System IDLE	            ⚫ Aus
-CO2 Warning	            🔴 Leuchtet dauerhaft
+| Button | Aktion | Funktion | Bedingung |
+|--------|--------|----------|-----------|
+| **Button 1** | Kurz drücken | 🎓 Arbeitsphase starten | Nur wenn keine Arbeitsphase läuft |
+| **Button 2** | Kurz drücken | ☕ Pause starten | Nur wenn Arbeitsphase beendet |
+| **Button 2** | 3s halten | ↩️ Letzte Aktion stornieren | Jederzeit |
+| **Button 2** | 7s halten | 🛑 Session komplett beenden | Jederzeit |
 
-🔊 Buzzer-Signale:
-Event	            Signal
-Session Start	    Kurzer Beep (0.2s)
-Pause Start	        Kurzer Beep (0.2s)
-Pause Ende	        Kurzer Beep (0.1s)
-Arbeitsphase Ende	Langer Beep (1.0s)
-Session Ende	    Sehr langer Beep (2.0s)
-CO2 Kritisch	    Doppel-Beep Pattern (3x wiederholt)
+### Detaillierte Button-Logik
+┌─────────────────────────────────────────────────────────┐
+│ BUTTON 1 (D0) - Arbeitsphase │
+├─────────────────────────────────────────────────────────┤
+│ • Kurz drücken (< 0.5s) │
+│ → Startet Arbeitsphase (30 Min) │
+│ → Nur wenn KEINE Arbeitsphase aktiv │
+│ → Während Arbeitsphase: Button ignoriert │
+└─────────────────────────────────────────────────────────┘
 
-📱 Discord-Benachrichtigungen:
-CO2-Status	        Benachrichtigung	    Frequenz
-Warning (600-800)	⚠️ Info ohne Ping	    Alle 5 Minuten
-Critical (>800)	    🆘 @Mention Ping	    Sofort + alle 5 Min
-Normal wieder	    ✅ Entwarnung	       Bei Rückkehr zu normal
+┌─────────────────────────────────────────────────────────┐
+│ BUTTON 2 (D1) - Pause & Kontrolle │
+├─────────────────────────────────────────────────────────┤
+│ • Kurz drücken (< 0.5s) │
+│ → Startet Pause (10 Min) │
+│ → Nur wenn Arbeitsphase BEENDET │
+│ │
+│ • 3 Sekunden halten │
+│ → 🟡 Feedback: "Storno bereit" │
+│ → Loslassen: Letzte Aktion wird storniert │
+│ → Arbeitsphase/Pause wird abgebrochen │
+│ │
+│ • 7 Sekunden halten │
+│ → 🔴 Feedback: "Session wird beendet" │
+│ → Loslassen: Komplette Session beendet │
+│ → Report wird erstellt │
+└─────────────────────────────────────────────────────────┘
 
-💡 Tipp
-Gute Luftqualität = bessere Konzentration!
 
-Bei Warning: Fenster öffnen
-Bei Critical: Sofort lüften und Pause einlegen
-Optimal: CO2 < 600 ppm
+### Visuelles Feedback während Button-Halten
+Button 2 gedrückt halten:
 
-🔧 Technische Details
+0s ─────── 3s ─────── 7s ──────→
+│ │ │
+│ 🟡 🔴
+│ "Storno "Session
+│ bereit" beenden"
+│
+└─ Loslassen vor 3s = Pause starten (wenn möglich)
+Loslassen bei 3-7s = Storno
+Loslassen nach 7s = Session Ende
 
-# CO2 (eCO2) - Kohlendioxid in ppm (parts per million)
+## 🌡️ CO2-Überwachung
 
+Kontinuierliche Überprüfung der Luftqualität während der Arbeitsphase:
+
+| CO2-Level | Status | Visuell | Akustisch | Discord |
+|-----------|--------|---------|-----------|---------|
+| < 600 ppm | 💚 Ausgezeichnet | LED aus | Keine Aktion | - |
+| 600-800 ppm | 💛 Warning | 🔴 LED leuchtet | Stille | ⚠️ Warnung (alle 5 Min) |
+| > 800 ppm | 🚨 Kritisch | 🔴 LED leuchtet | Buzzer piept 2x | 🆘 @Ping Warnung |
+
+### 💡 LED-Status im Detail
+
+| Situation | LED-Verhalten |
+|-----------|---------------|
+| System IDLE | ⚫ Aus |
+| CO2 Warning | 🔴 Leuchtet dauerhaft |
+| CO2 Kritisch | 🔴 Leuchtet dauerhaft |
+
+### 🔊 Buzzer-Signale
+
+| Event | Signal |
+|-------|--------|
+| Session Start | Kurzer Beep (0.2s) |
+| Pause Start | Kurzer Beep (0.2s) |
+| Pause Ende | Kurzer Beep (0.1s) |
+| Arbeitsphase Ende | Langer Beep (1.0s) |
+| Storno (3s) | Kurzer Beep (0.1s) |
+| Session Ende (7s) | Sehr langer Beep (2.0s) |
+| CO2 Kritisch | Doppel-Beep Pattern (3x wiederholt) |
+
+### 📱 Discord-Benachrichtigungen
+
+| CO2-Status | Benachrichtigung | Frequenz |
+|------------|------------------|----------|
+| Warning (600-800) | ⚠️ Info ohne Ping | Alle 5 Minuten |
+| Critical (>800) | 🆘 @Mention Ping | Sofort + alle 5 Min |
+| Normal wieder | ✅ Entwarnung | Bei Rückkehr zu normal |
+
+> 💡 **Tipp:** Gute Luftqualität = bessere Konzentration!
+> - Bei Warning: Fenster öffnen
+> - Bei Critical: Sofort lüften und Pause einlegen
+> - Optimal: CO2 < 600 ppm
+
+## 🔧 Technische Details
+
+### CO2-Werte (eCO2)
 400 ppm = Sensor-Minimum (Frischluft draußen: ~420 ppm)
-600-800 ppm = Leicht erhöht (normaler Raum mit Menschen)
-800-1500 ppm = Kritisch (schlechte Luftqualität)
->1500 ppm = Sehr kritisch (Kopfschmerzen, Müdigkeit)
+600 ppm = Warning-Schwelle
+800 ppm = Kritisch-Schwelle
 
-# TVOC - Total Volatile Organic Compounds in ppb (parts per billion)
+1500 ppm = Sehr kritisch (Kopfschmerzen, Müdigkeit)
+
+### TVOC-Werte (Total Volatile Organic Compounds)
 0-50 ppb = Sehr gut
 50-220 ppb = Gut
 220-660 ppb = Mäßig
 660-2200 ppb = Schlecht
->2200 ppb = Sehr schlecht
+
+2200 ppb = Sehr schlecht
+
+### Button-Timing (config.py)
+
+SHORT_PRESS_MAX = 0.5      # Max 0.5s für kurzen Druck
+CANCEL_PRESS = 3.0         # 3s für Storno
+END_SESSION_PRESS = 7.0    # 7s für Session beenden
 
 🖥️ Hardware-Setup
 
-# PiTop 1 - Arbeitsplatz
-Komponente	        Port	    Funktion
-Button 1	        D0	        Work-Timer starten/stoppen
-Button 2	        D1	        Pause starten
-LED (Rot)	        D2	        Status-Anzeige (An/Aus/Blink)
-Buzzer	            D3	        Akustische Signale
+PiTop 1 - Arbeitsplatz
+
+Komponente	Port	Funktion
+Button 1	D0	Arbeitsphase starten
+Button 2	D1	Pause / Storno / Session beenden
+LED (Rot)	D2	CO2-Warnung
+Buzzer	D3	Akustische Signale
 CO2 Sensor (SGP30)	I2C (0x5A)	Luftqualität (eCO2 + TVOC)
 
-# PiTop 2 - Pausenzone
-Komponente	            Port	    Funktion
+PiTop 2 - Pausenzone
+Komponente	Port	Funktion
 Step Counter (BMA400)	I2C (0x14)	Schritte, Kalorien, Distanz
 
+📊 Datenbank-Schema
+
+Sessions Tabelle
+- session_id (UUID)
+- user_name (TEXT)
+- device_id (TEXT)
+- start_time (TIMESTAMP)
+- end_time (TIMESTAMP)
+- total_work_time (INTEGER) -- in Sekunden
+- total_break_time (INTEGER) -- in Sekunden
+- pause_count (INTEGER)
+- timer_status (TEXT) -- 'idle', 'working', 'break', 'work_ready', 'ended'
+
+CO2 Measurements Tabelle
+- session_id (UUID, FK)
+- co2_level (INTEGER) -- ppm
+- tvoc_level (INTEGER) -- ppb
+- is_alarm (BOOLEAN)
+- alarm_type (TEXT) -- 'warning', 'critical', NULL
+- created_at (TIMESTAMP)
+
+Break Data Tabelle
+- session_id (UUID, FK)
+- pause_number (INTEGER)
+- step_count (INTEGER)
+- calories_burned (INTEGER)
+- distance_meters (INTEGER)
+- device_id (TEXT)
+- created_at (TIMESTAMP)
+🚀 Quick Start
+Test-Modus (30s Arbeit, 10s Pause)
+
+# PiTop 1
+python test_pitop1.py
+
+# PiTop 2
+python test_pitop2.py
+Produktiv-Modus (30 Min Arbeit, 10 Min Pause)
+
+# PiTop 1
+python main_pitop1.py
+
+# PiTop 2
+python main_pitop2.py
+
+📝 Workflow-Beispiel
+text
+1. Button 1 drücken → Arbeitsphase startet
+   ⏱️ 30 Minuten arbeiten...
+   
+2. Timer läuft ab → Buzzer piept
+   
+3. Button 2 kurz drücken → Pause startet
+   🚶 10 Minuten bewegen (PiTop 2 zählt Schritte)
+   
+4. Pause endet → Buzzer piept
+   
+5. Button 1 drücken → Nächste Arbeitsphase
+   🔁 Wiederholen...
+   
+6. Fertig? → Button 2 für 7s halten
+   📊 Report wird erstellt
+
+⚠️ Wichtige Hinweise
+Button 1 während Arbeitsphase: Wird ignoriert (keine doppelten Phasen)
+Button 2 während Arbeitsphase: Pause nicht möglich, aber Storno/Ende schon
+Storno (3s): Bricht aktuelle Aktion ab, Session bleibt offen
+Session Ende (7s): Beendet alles, erstellt Report
