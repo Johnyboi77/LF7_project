@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-🧪 TEST MODE - pi-top 1
-Schnelldurchlauf: 30s Arbeit, 10s Pause
-DB speichert hochgerechnete Werte (x60)
+LEARNING ASSISTANT - pi-top 1
+Produktiv-Version: 30 Min Arbeit, 10 Min Pause
 """
 
 import os
@@ -16,27 +15,26 @@ import signal
 import time
 from time import sleep
 from datetime import datetime
+from threading import Thread, Event
 import config
 from hardware import Button1, Button2, LED, Buzzer, CO2Sensor
 from services.timer_service import TimerService
 from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
 
-# 🧪 TEST MODE CONFIGURATION
-WORK_DURATION = 1800      # 30 Minuten (statt 1800s)
-BREAK_DURATION = 600     # 10 Minuten (statt 600s)
-DB_MULTIPLIER = 1           # Werte x60 für DB (als Minuten speichern)
-CO2_LOG_INTERVAL = 6         # Alle 6 Aufrufe loggen (bei 5s Loop = alle 30s)
+# PRODUKTIV CONFIGURATION
+WORK_DURATION = 1800         # 30 Minuten
+BREAK_DURATION = 600         # 10 Minuten
+CO2_LOG_INTERVAL = 30        # Alle 30 Sekunden CO2 loggen
 
 
 class LearningSession:
     def __init__(self):
         print("\n" + "="*60)
-        print("🧪 TEST MODE - LEARNING ASSISTANT - pi-top 1")
+        print("📚 LEARNING ASSISTANT - pi-top 1")
         print("="*60)
-        print("⚡ Schnelldurchlauf aktiviert!")
-        print(f"   Arbeitsphase: {WORK_DURATION}s → DB: {WORK_DURATION * DB_MULTIPLIER}s")
-        print(f"   Pausenphase:  {BREAK_DURATION}s → DB: {BREAK_DURATION * DB_MULTIPLIER}s")
+        print(f"   Arbeitsphase: {WORK_DURATION // 60} Minuten")
+        print(f"   Pausenphase:  {BREAK_DURATION // 60} Minuten")
         print("="*60 + "\n")
         
         # Hardware
@@ -52,10 +50,18 @@ class LearningSession:
         self.timer = TimerService(self.db, self.notify)
         
         # State Machine
+        # IDLE = Bereit für neue Session
+        # WORKING = Arbeitsphase aktiv (Timer läuft)
+        # WORK_DONE = Arbeitsphase beendet, wartet auf Entscheidung
+        # BREAK = Pausenphase aktiv
         self.state = "IDLE"
         self.session_id = None
         self.co2_alarm_active = False
         self.last_co2_warning = None
+        
+        # Timer Control
+        self.timer_stop_event = Event()
+        self.timer_thread = None
         
         # Action History für Storno
         self.action_history = []
@@ -63,7 +69,7 @@ class LearningSession:
         # CO2 Logging Counter
         self.co2_log_counter = 0
         
-        # Test Stats
+        # Session Stats
         self.total_work_time = 0
         self.total_break_time = 0
         
@@ -74,14 +80,14 @@ class LearningSession:
         return SupabaseManager()
     
     def _setup_callbacks(self):
-        """Setup der neuen Button-Logik"""
+        """Setup der Button-Logik"""
         
         # Status-Check Callbacks setzen
         self.button1.set_work_active_check(self._is_work_active)
         self.button2.set_work_active_check(self._is_work_active)
         
-        # Button 1: Nur Arbeitsphase starten
-        self.button1.on_short_press(self._start_work_session)
+        # Button 1: Arbeitsphase starten (wenn IDLE oder WORK_DONE)
+        self.button1.on_short_press(self._on_button1_press)
         
         # Button 2: Pause, Storno, Session beenden
         self.button2.on_short_press(self._start_break)
@@ -92,18 +98,32 @@ class LearningSession:
         """Prüft ob gerade eine Arbeitsphase läuft"""
         return self.state == "WORKING"
     
-    # ===== WORK SESSION =====
-    
-    def _start_work_session(self):
+    def _on_button1_press(self):
+        """Button 1 Handler - Arbeitsphase starten"""
         if self.state == "WORKING":
             print("⚠️ Arbeitsphase läuft bereits!")
             return
         
+        if self.state == "BREAK":
+            print("⚠️ Pause läuft - warte bis sie beendet ist!")
+            return
+        
+        # IDLE oder WORK_DONE -> neue Arbeitsphase starten
+        self._start_work_session()
+    
+    # ===== WORK SESSION =====
+    
+    def _start_work_session(self):
+        """Startet eine neue Arbeitsphase"""
+        
         print("\n" + "="*60)
-        print("🧪 TEST - ARBEITSPHASE GESTARTET (30s)")
+        print(f"🎓 ARBEITSPHASE GESTARTET ({WORK_DURATION // 60} Min)")
         print("="*60)
         
         self.state = "WORKING"
+        
+        # Timer-Stop Event zurücksetzen
+        self.timer_stop_event.clear()
         
         # Action History
         self.action_history.append({
@@ -124,74 +144,103 @@ class LearningSession:
         # UI Feedback
         self.buzzer.beep(0.2)
         
-        # TEST: 30s Timer
-        self._run_work_timer()
+        # Timer in separatem Thread starten (non-blocking!)
+        self.timer_thread = Thread(target=self._run_work_timer, daemon=True)
+        self.timer_thread.start()
     
     def _run_work_timer(self):
-        """⏱️ TEST Timer: 30 Minuten"""
+        """⏱️ Arbeits-Timer (läuft im separaten Thread)"""
         
         start_time = time.time()
+        last_minute_shown = -1
         
-        try:
-            while time.time() - start_time < WORK_DURATION:
-                # Prüfen ob State noch WORKING (könnte durch Storno geändert worden sein)
-                if self.state != "WORKING":
-                    print("\n⚠️ Arbeitsphase wurde unterbrochen")
-                    return
-                
-                elapsed = time.time() - start_time
-                remaining = WORK_DURATION - elapsed
-                
-                # CO2 während Arbeit überwachen
-                self._monitor_co2()
-                
-                print(f"\r⏱️ Arbeit: {int(remaining)}s verbleibend", 
-                      end='', flush=True)
-                
-                sleep(5)  # 5s Intervall für CO2
+        while time.time() - start_time < WORK_DURATION:
+            # Prüfen ob Timer gestoppt werden soll (Storno/Session Ende)
+            if self.timer_stop_event.is_set():
+                print("\n⚠️ Timer wurde gestoppt")
+                return
             
-            # Timer regulär abgelaufen
-            if self.state == "WORKING":
-                print(f"\n\n⏰ ARBEITSPHASE ABGELAUFEN! (30s = 30 Min simuliert)")
-                
-                # Speichere in DB mit x60 Multiplikator
-                self.total_work_time += WORK_DURATION
-                
-                # Buzzer
-                self.buzzer.long_beep(1.0)
-                
-                # State auf WORK_DONE - wartet auf Pause
-                self.state = "WORK_DONE"
-                
-                print("✅ Arbeitsphase beendet - Drücke Button 2 für Pause\n")
+            # Prüfen ob State noch WORKING
+            if self.state != "WORKING":
+                print("\n⚠️ Arbeitsphase wurde unterbrochen")
+                return
+            
+            elapsed = time.time() - start_time
+            remaining = WORK_DURATION - elapsed
+            remaining_min = int(remaining // 60)
+            remaining_sec = int(remaining % 60)
+            
+            # Minuten-Anzeige (nicht jede Sekunde spammen)
+            current_minute = int(remaining // 60)
+            if current_minute != last_minute_shown:
+                print(f"\r⏱️ Arbeit: {remaining_min:02d}:{remaining_sec:02d} verbleibend   ", 
+                      end='', flush=True)
+                last_minute_shown = current_minute
+            
+            # CO2 während Arbeit überwachen
+            self._monitor_co2()
+            
+            sleep(1)
         
-        except KeyboardInterrupt:
-            print(f"\n⚠️ Timer unterbrochen!")
+        # Timer regulär abgelaufen - NUR wenn noch WORKING
+        if self.state == "WORKING":
+            self._work_timer_finished()
+    
+    def _work_timer_finished(self):
+        """Wird aufgerufen wenn der Arbeitstimer abgelaufen ist"""
+        
+        print(f"\n\n" + "="*60)
+        print("⏰ ARBEITSPHASE BEENDET!")
+        print("="*60)
+        
+        # Speichere Arbeitszeit
+        self.total_work_time += WORK_DURATION
+        
+        # Buzzer Signal
+        self.buzzer.long_beep(1.0)
+        
+        # State auf WORK_DONE - wartet auf User-Entscheidung
+        self.state = "WORK_DONE"
+        
+        print(f"\n🎯 WÄHLE DEINE NÄCHSTE AKTION:")
+        print("  ┌──────────────────────────────────────────────┐")
+        print(f"  │ Button 1 → Nächste Arbeitsphase ({WORK_DURATION // 60} Min)   │")
+        print(f"  │ Button 2 → Pause starten ({BREAK_DURATION // 60} Min)          │")
+        print("  │ Button 2 (7s) → Session beenden             │")
+        print("  └──────────────────────────────────────────────┘")
+        print("\n👉 Warte auf Button-Eingabe...\n")
     
     # ===== BREAK SESSION =====
     
     def _start_break(self):
-        """Pause starten - nur wenn keine Arbeitsphase aktiv"""
+        """Pause starten - nur wenn Arbeitsphase beendet (WORK_DONE)"""
         
         if self.state == "WORKING":
-            print("⚠️ Arbeitsphase läuft noch - zuerst beenden lassen!")
+            print("\n⚠️ Arbeitsphase läuft noch!")
+            print("   Warte bis Timer abgelaufen ist oder halte Button 2 für 3s (Storno)")
+            return
+        
+        if self.state == "BREAK":
+            print("⚠️ Pause läuft bereits!")
+            return
+        
+        if self.state == "IDLE" and not self.session_id:
+            print("⚠️ Zuerst Arbeitsphase mit Button 1 starten!")
             return
         
         if self.state not in ["WORK_DONE", "IDLE"]:
             print(f"⚠️ Pause nicht möglich im Status: {self.state}")
             return
         
-        # Wenn IDLE und keine Session, erstmal Session starten
-        if self.state == "IDLE" and not self.session_id:
-            print("⚠️ Zuerst Arbeitsphase mit Button 1 starten!")
-            return
-        
         print("\n" + "="*60)
-        print("🧪 TEST - PAUSENPHASE INITIIERT (10s)")
+        print(f"☕ PAUSE GESTARTET ({BREAK_DURATION // 60} Min)")
         print("="*60)
         print("\n📡 Signalisiere Break an PiTop 2...")
         
         self.state = "BREAK"
+        
+        # Timer-Stop Event zurücksetzen
+        self.timer_stop_event.clear()
         
         # Action History
         self.action_history.append({
@@ -208,8 +257,9 @@ class LearningSession:
         # DB-Status update
         self._update_break_status('break')
         
-        # Warte 10 Minuten
-        self._wait_for_break()
+        # Break-Timer in separatem Thread starten
+        break_thread = Thread(target=self._run_break_timer, daemon=True)
+        break_thread.start()
     
     def _update_break_status(self, status):
         if not self.db.client or not self.session_id:
@@ -220,51 +270,60 @@ class LearningSession:
                 'timer_status': status
             }).eq('session_id', self.session_id).execute()
             
-            print(f"✅ DB Status: {status} (PiTop 2 sollte jetzt reagieren)")
+            print(f"✅ DB Status: {status} (PiTop 2 reagiert)")
         
         except Exception as e:
             print(f"⚠️ Status-Update Fehler: {e}")
     
-    def _wait_for_break(self):
-        """⏱️ TEST: Wartet 10 Minuten"""
+    def _run_break_timer(self):
+        """⏱️ Break Timer (läuft im separaten Thread)"""
         
-        print(f"\n⏱️ Break-Timer: 10 Minuten (= 10 Min simuliert)")
+        print(f"\n⏱️ Break-Timer: {BREAK_DURATION // 60} Minuten")
         print("👣 PiTop 2 zählt jetzt Schritte...\n")
         
         start_time = time.time()
+        last_minute_shown = -1
         
-        try:
-            while time.time() - start_time < BREAK_DURATION:
-                # Prüfen ob State noch BREAK
-                if self.state != "BREAK":
-                    print("\n⚠️ Pause wurde unterbrochen")
-                    return
-                
-                elapsed = time.time() - start_time
-                remaining = BREAK_DURATION - elapsed
-                
-                print(f"\r⏱️ {int(remaining)}s verbleibend (Break läuft auf beiden PiTops)", 
+        while time.time() - start_time < BREAK_DURATION:
+            # Prüfen ob Timer gestoppt werden soll
+            if self.timer_stop_event.is_set():
+                print("\n⚠️ Break wurde gestoppt")
+                return
+            
+            # Prüfen ob State noch BREAK
+            if self.state != "BREAK":
+                print("\n⚠️ Pause wurde unterbrochen")
+                return
+            
+            elapsed = time.time() - start_time
+            remaining = BREAK_DURATION - elapsed
+            remaining_min = int(remaining // 60)
+            remaining_sec = int(remaining % 60)
+            
+            # Minuten-Anzeige
+            current_minute = int(remaining // 60)
+            if current_minute != last_minute_shown:
+                print(f"\r⏱️ Pause: {remaining_min:02d}:{remaining_sec:02d} verbleibend   ", 
                       end='', flush=True)
-                
-                sleep(1)
+                last_minute_shown = current_minute
             
-            print(f"\n\n⏰ BREAK ABGELAUFEN!")
-            
-            # Speichere in DB mit x60 Multiplikator
-            self.total_break_time += BREAK_DURATION
+            sleep(1)
         
-        except KeyboardInterrupt:
-            print(f"\n\n⚠️ Break unterbrochen!")
-        
-        finally:
-            if self.state == "BREAK":
-                self._end_break()
+        # Timer regulär abgelaufen
+        if self.state == "BREAK":
+            self._break_timer_finished()
     
-    def _end_break(self):
-        print("\n" + "="*60)
-        print("☕ BREAK BEENDET (TEST)")
+    def _break_timer_finished(self):
+        """Wird aufgerufen wenn der Break-Timer abgelaufen ist"""
+        
+        print(f"\n\n" + "="*60)
+        print("☕ PAUSE BEENDET!")
         print("="*60)
         
+        # Speichere Pausenzeit
+        self.total_break_time += BREAK_DURATION
+        
+        # Buzzer Signal
         self.buzzer.beep(0.1)
         
         # Update DB
@@ -273,11 +332,15 @@ class LearningSession:
         # Discord
         self.notify.send_break_finished()
         
+        # State auf IDLE - bereit für nächste Aktion
         self.state = "IDLE"
         
-        print("✅ Bereit für nächste Arbeitsphase!")
-        print("👉 Drücke Button 1 zum Weitermachen")
-        print("👉 Oder Button 2 (7s) zum Session beenden\n")
+        print(f"\n🎯 WÄHLE DEINE NÄCHSTE AKTION:")
+        print("  ┌──────────────────────────────────────────────┐")
+        print(f"  │ Button 1 → Nächste Arbeitsphase ({WORK_DURATION // 60} Min)   │")
+        print("  │ Button 2 (7s) → Session beenden             │")
+        print("  └──────────────────────────────────────────────┘")
+        print("\n👉 Warte auf Button-Eingabe...\n")
     
     # ===== STORNO =====
     
@@ -288,8 +351,12 @@ class LearningSession:
         print("↩️ STORNO - Letzte Aktion wird rückgängig gemacht")
         print("="*60)
         
+        # Timer stoppen falls läuft
+        self.timer_stop_event.set()
+        
         if not self.action_history:
             print("⚠️ Keine Aktion zum Stornieren vorhanden!")
+            self.state = "IDLE"
             return
         
         last_action = self.action_history.pop()
@@ -309,7 +376,14 @@ class LearningSession:
             self._update_break_status('work_ready')
         
         self.buzzer.beep(0.1)
-        print(f"✅ Storno abgeschlossen - Status: {self.state}\n")
+        
+        print(f"✅ Storno abgeschlossen - Status: {self.state}")
+        print("\n🎯 OPTIONEN:")
+        print("  Button 1 → Arbeitsphase starten")
+        if self.session_id:
+            print("  Button 2 → Pause starten (wenn WORK_DONE)")
+            print("  Button 2 (7s) → Session beenden")
+        print("")
     
     # ===== SESSION BEENDEN =====
     
@@ -317,12 +391,16 @@ class LearningSession:
         """Session komplett beenden (Button 2, 7s)"""
         
         print("\n" + "="*60)
-        print("🛑 TEST SESSION BEENDET")
+        print("🛑 SESSION BEENDET")
         print("="*60)
         
+        # Timer stoppen
+        self.timer_stop_event.set()
+        
+        prev_state = self.state
         self.state = "DONE"
         
-        # Timer stoppen falls läuft
+        # Timer Service stoppen
         self.timer.stop_event.set()
         self.timer.is_running = False
         
@@ -330,15 +408,14 @@ class LearningSession:
         self.led.off()
         self.buzzer.long_beep(2.0)
         
-        # Hochgerechnete Zeiten für DB
-        db_work_time = self.total_work_time * DB_MULTIPLIER
-        db_break_time = self.total_break_time * DB_MULTIPLIER
+        # Zeiten
+        work_minutes = self.total_work_time // 60
+        break_minutes = self.total_break_time // 60
         
-        print(f"\n📊 TEST STATISTIK:")
-        print(f"   Echte Arbeitszeit: {self.total_work_time}s")
-        print(f"   DB Arbeitszeit: {db_work_time}s ({db_work_time // 60} Min)")
-        print(f"   Echte Pausenzeit: {self.total_break_time}s")
-        print(f"   DB Pausenzeit: {db_break_time}s ({db_break_time // 60} Min)")
+        print(f"\n📊 SESSION STATISTIK:")
+        print(f"   Vorheriger Status: {prev_state}")
+        print(f"   Gesamte Arbeitszeit: {work_minutes} Minuten ({self.total_work_time}s)")
+        print(f"   Gesamte Pausenzeit: {break_minutes} Minuten ({self.total_break_time}s)")
         print(f"   Aktionen: {len(self.action_history)}\n")
         
         # Report aus DB holen
@@ -348,8 +425,8 @@ class LearningSession:
             # Session in DB beenden
             self.db.end_session(
                 self.session_id,
-                db_work_time,
-                db_break_time
+                self.total_work_time,
+                self.total_break_time
             )
             
             # Report
@@ -357,7 +434,7 @@ class LearningSession:
                 self.notify.print_terminal_report(report_data)
                 self.notify.send_session_report(report_data)
         
-        # Reset
+        # Reset für neue Session
         self.session_id = None
         self.total_work_time = 0
         self.total_break_time = 0
@@ -365,12 +442,15 @@ class LearningSession:
         self.action_history.clear()
         self.state = "IDLE"
         
-        print("\n✅ Session abgeschlossen - Ready für neue Session!\n")
+        print("\n" + "="*60)
+        print("✅ Session abgeschlossen - Bereit für neue Session!")
+        print("👉 Drücke Button 1 um neue Session zu starten")
+        print("="*60 + "\n")
     
     # ===== CO2 MONITORING =====
     
     def _monitor_co2(self):
-        """🌡️ CO2-Überwachung mit DB-Logging alle 30s"""
+        """🌡️ CO2-Überwachung mit DB-Logging"""
         
         try:
             alarm_status = self.co2.get_alarm_status()
@@ -380,7 +460,7 @@ class LearningSession:
             # Counter erhöhen
             self.co2_log_counter += 1
             
-            # Nur alle 6 Aufrufe loggen (30s) ODER bei Alarm
+            # Alle 30 Sekunden loggen ODER bei Alarm
             is_alarm = alarm_status in ["warning", "critical"]
             should_log = (self.co2_log_counter >= CO2_LOG_INTERVAL) or is_alarm
             
@@ -393,12 +473,11 @@ class LearningSession:
                     alarm_type=alarm_status if is_alarm else None
                 )
                 self.co2_log_counter = 0
-                print(f"\n💨 CO2 geloggt: {co2_level} ppm")
             
             # CRITICAL (> 800 ppm)
             if alarm_status == "critical":
                 if not self.co2_alarm_active:
-                    print(f"\n🚨 CO2 KRITISCH: {co2_level} ppm")
+                    print(f"\n🚨 CO2 KRITISCH: {co2_level} ppm - Bitte lüften!")
                     self.led.on()
                     self.buzzer.co2_alarm()
                     self.co2_alarm_active = True
@@ -406,7 +485,7 @@ class LearningSession:
             # WARNING (600-800 ppm)
             elif alarm_status == "warning":
                 if not self.co2_alarm_active:
-                    print(f"\n⚠️ CO2 WARNING: {co2_level} ppm")
+                    print(f"\n⚠️ CO2 erhöht: {co2_level} ppm")
                     self.led.on()
                     self.co2_alarm_active = True
             
@@ -418,51 +497,58 @@ class LearningSession:
                     self.led.off()
         
         except Exception as e:
-            print(f"\n⚠️ CO2-Monitoring Fehler: {e}")
+            pass  # Stille Fehler im Timer-Thread
     
     # ===== MAIN LOOP =====
     
     def run(self):
-        print("✅ TEST System bereit!")
+        print("✅ System bereit!")
         print(f"📱 User: {config.USER_NAME}")
         print(f"📡 Device: {config.DEVICE_ID}")
         print(f"💾 Supabase: {'✅' if self.db.client else '❌'}")
         print(f"🤖 Discord: {'✅' if self.notify.is_enabled else '❌'}")
         
-        print("\n🧪 TEST-MODUS:")
-        print(f"   ⚡ Arbeitsphase: {WORK_DURATION}s (statt 30 Min)")
-        print(f"   ⚡ Pausenphase: {BREAK_DURATION}s (statt 10 Min)")
-        print(f"   📊 DB Multiplikator: x{DB_MULTIPLIER}")
-        print(f"   💨 CO2 Logging: alle {CO2_LOG_INTERVAL * 5}s")
+        print(f"\n⏱️ TIMER-EINSTELLUNGEN:")
+        print(f"   Arbeitsphase: {WORK_DURATION // 60} Minuten")
+        print(f"   Pausenphase: {BREAK_DURATION // 60} Minuten")
         
-        print("\n🎮 NEUE BUTTON-STEUERUNG:")
+        print("\n🎮 BUTTON-STEUERUNG:")
         print("  ┌─────────────────────────────────────────┐")
         print("  │ BUTTON 1 (D0):                          │")
-        print("  │   • Kurz drücken = Arbeitsphase starten │")
-        print("  │     (nur wenn keine läuft)              │")
+        print("  │   • Kurz = Arbeitsphase starten         │")
+        print("  │     (in IDLE oder nach Timer-Ablauf)    │")
         print("  ├─────────────────────────────────────────┤")
         print("  │ BUTTON 2 (D1):                          │")
-        print("  │   • Kurz drücken = Pause starten        │")
-        print("  │     (nur wenn Arbeit beendet)           │")
-        print("  │   • 3s halten = STORNO letzte Aktion    │")
+        print("  │   • Kurz = Pause starten                │")
+        print("  │     (nur nach Arbeitsphase-Ende)        │")
+        print("  │   • 3s halten = STORNO                  │")
         print("  │   • 7s halten = SESSION BEENDEN         │")
         print("  └─────────────────────────────────────────┘")
         
+        print("\n⚠️ WICHTIG:")
+        print("   Nach Timer-Ablauf STOPPT das System!")
+        print("   Du musst Button drücken für nächste Aktion.")
+        
         print("\n" + "="*60)
-        print("👉 Starte Test mit Button 1!\n")
+        print("👉 Starte mit Button 1!")
+        print("="*60 + "\n")
         
         try:
             while True:
-                sleep(1)
+                # Hauptschleife - Buttons werden via Callbacks verarbeitet
+                sleep(0.5)
         
         except KeyboardInterrupt:
             self._cleanup()
     
     def _cleanup(self):
-        print("\n\n🛑 System beendet")
+        print("\n\n🛑 System wird beendet...")
+        
+        # Timer stoppen
+        self.timer_stop_event.set()
         
         if self.state not in ["IDLE", "DONE"]:
-            print("⚠️ Session nicht ordnungsgemäß beendet!")
+            print(f"⚠️ Session im Status '{self.state}' beendet!")
         
         self.led.off()
         self.buzzer.off()
