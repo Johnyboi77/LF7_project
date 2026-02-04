@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - alle Tests erfolgreich nun Userbility anpassen"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - alle Tests erfolgreich & Userbility angepasst"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"

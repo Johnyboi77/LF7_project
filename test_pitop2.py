@@ -3,14 +3,15 @@
 🧪 TEST MODE - pi-top 2
 Schnelldurchlauf: 10s Pause
 DB speichert hochgerechnete Werte (x60)
+Holt CO2-Daten aus DB für Report
 """
 
 import os
 import sys
 
-# ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
+# DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
 if '--device=' not in ' '.join(sys.argv):
-    os.environ['DEVICE_OVERRIDE'] = 'pitop2'  # Default für diesen Test
+    os.environ['DEVICE_OVERRIDE'] = 'pitop2'
 
 import signal
 import time
@@ -21,7 +22,7 @@ from hardware import StepCounter
 from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
 
-# 🧪 TEST MODE CONFIGURATION
+# TEST MODE CONFIGURATION
 TEST_BREAK_DURATION = 10     # 10 Sekunden (statt 600s)
 DB_MULTIPLIER = 60           # Werte x60 für DB
 
@@ -53,6 +54,9 @@ class TestBreakStation:
         self.polling_active = True
         self.polling_thread = None
         self.last_session_id = None
+        
+        # Break kann von außen abgebrochen werden
+        self.break_cancelled = False
         
         print(f"✅ Test-Initialisierung abgeschlossen\n")
     
@@ -93,7 +97,7 @@ class TestBreakStation:
                     self.last_session_id = session_id
                     
                     self.session_id = session_id
-                    self.pause_number = session.get('pause_count', 0)
+                    self.pause_number = session.get('pause_count', 0) + 1
                     self.user_name = session.get('user_name', 'User')
                     
                     print(f"\n✅ BREAK-SIGNAL ERKANNT (TEST)!")
@@ -105,6 +109,13 @@ class TestBreakStation:
                     
                     self.last_session_id = None
                 
+                # SESSION BEENDET - Reset
+                elif status in ['ended', 'cancelled']:
+                    if self.state == "BREAK":
+                        print("\n⚠️ Session wurde von PiTop 1 beendet!")
+                        self.break_cancelled = True
+                    self.last_session_id = None
+                
                 time.sleep(poll_interval)
             
             except KeyboardInterrupt:
@@ -112,6 +123,46 @@ class TestBreakStation:
             except Exception as e:
                 print(f"⚠️ Polling Fehler: {e}")
                 time.sleep(poll_interval)
+    
+    # ===== CO2 DATA FROM DB =====
+    
+    def _get_co2_stats(self):
+        """🌡️ Holt CO2-Statistiken aus der Datenbank"""
+        if not self.db.client or not self.session_id:
+            return None
+        
+        try:
+            result = self.db.client.table('co2_measurements')\
+                .select('co2_level, tvoc_level, is_alarm')\
+                .eq('session_id', self.session_id)\
+                .execute()
+            
+            if not result.data:
+                print("ℹ️  Keine CO2-Daten gefunden")
+                return None
+            
+            co2_values = [row['co2_level'] for row in result.data if row['co2_level']]
+            tvoc_values = [row['tvoc_level'] for row in result.data if row.get('tvoc_level')]
+            alarm_count = sum(1 for row in result.data if row.get('is_alarm'))
+            
+            if not co2_values:
+                return None
+            
+            stats = {
+                'avg_co2': int(sum(co2_values) / len(co2_values)),
+                'min_co2': min(co2_values),
+                'max_co2': max(co2_values),
+                'avg_tvoc': int(sum(tvoc_values) / len(tvoc_values)) if tvoc_values else 0,
+                'alarm_count': alarm_count,
+                'measurement_count': len(co2_values)
+            }
+            
+            print(f"📊 CO2-Daten geladen: {len(co2_values)} Messungen")
+            return stats
+        
+        except Exception as e:
+            print(f"⚠️ CO2-Daten Fehler: {e}")
+            return None
     
     # ===== BREAK SESSION =====
     
@@ -124,6 +175,7 @@ class TestBreakStation:
         print(f"👣 Schrittzähler aktiv\n")
         
         self.state = "BREAK"
+        self.break_cancelled = False
         self.pause_start_time = time.time()
         
         # Schrittzähler starten
@@ -135,6 +187,11 @@ class TestBreakStation:
         
         try:
             while time.time() - start_time < TEST_BREAK_DURATION:
+                # Check ob Break von PiTop 1 abgebrochen wurde
+                if self.break_cancelled:
+                    print("\n\n⚠️ Break wurde extern abgebrochen!")
+                    break
+                
                 elapsed = time.time() - start_time
                 remaining = TEST_BREAK_DURATION - elapsed
                 
@@ -145,7 +202,8 @@ class TestBreakStation:
                 
                 time.sleep(1)
             
-            print(f"\n\n⏰ PAUSE ABGELAUFEN!")
+            if not self.break_cancelled:
+                print(f"\n\n⏰ PAUSE ABGELAUFEN!")
         
         except KeyboardInterrupt:
             print(f"\n\n⚠️ Pause unterbrochen!")
@@ -163,28 +221,45 @@ class TestBreakStation:
         calories = int(steps * 0.05)
         distance = int(steps * 0.75)
         
+        # CO2-Daten aus DB holen
+        co2_stats = self._get_co2_stats()
+        
         print("\n" + "="*60)
         print(f"📊 TEST - PAUSE #{self.pause_number} STATISTIK")
         print("="*60)
         print(f"\n👣 Schritte:     {steps:,}")
         print(f"🔥 Kalorien:     ~{calories} kcal")
         print(f"📏 Distanz:      ~{distance}m")
+        
+        # CO2-Stats anzeigen
+        if co2_stats:
+            print(f"\n💨 CO2 Durchschnitt: {co2_stats['avg_co2']} ppm")
+            print(f"💨 CO2 Min/Max:      {co2_stats['min_co2']}/{co2_stats['max_co2']} ppm")
+            if co2_stats['avg_tvoc']:
+                print(f"🌿 TVOC Durchschnitt: {co2_stats['avg_tvoc']} ppb")
+            if co2_stats['alarm_count'] > 0:
+                print(f"⚠️  Alarme:          {co2_stats['alarm_count']}")
+        
         print(f"\n💾 Echte Zeit: {TEST_BREAK_DURATION}s")
         print(f"💾 DB Zeit: {TEST_BREAK_DURATION * DB_MULTIPLIER}s ({TEST_BREAK_DURATION * DB_MULTIPLIER // 60} Min)\n")
         
-        # DB speichern
-        self._save_break_data(steps, calories, distance)
-        
-        # Discord
-        self._send_break_notification(user_name, steps, calories, distance)
-        
-        # Status update
-        self._update_session_status('work_ready')
+        # Nur speichern wenn nicht abgebrochen
+        if not self.break_cancelled:
+            # DB speichern
+            self._save_break_data(steps, calories, distance)
+            
+            # Discord mit CO2-Daten
+            self._send_break_notification(user_name, steps, calories, distance, co2_stats)
+            
+            # Status update
+            self._update_session_status('work_ready')
+        else:
+            print("⚠️ Break wurde abgebrochen - keine Daten gespeichert")
         
         # Reset
         self.steps.reset()
+        self.break_cancelled = False
         
-        print("✅ Break-Daten gespeichert (TEST)")
         print("✅ Bereit für nächste Pause!\n")
     
     def _save_break_data(self, steps, calories, distance):
@@ -216,8 +291,10 @@ class TestBreakStation:
             return
         
         try:
+            # Auch pause_count erhöhen
             self.db.client.table('sessions').update({
-                'timer_status': status
+                'timer_status': status,
+                'pause_count': self.pause_number
             }).eq('session_id', self.session_id).execute()
             
             print(f"📊 Session Status: {status}")
@@ -225,25 +302,58 @@ class TestBreakStation:
         except Exception as e:
             print(f"⚠️ Status-Update Fehler: {e}")
     
-    def _send_break_notification(self, user_name, steps, calories, distance):
+    def _send_break_notification(self, user_name, steps, calories, distance, co2_stats=None):
+        """📱 Discord-Benachrichtigung mit CO2-Daten"""
         if not self.notify.is_enabled:
             return
-        
-        from services.discord_templates import MessageTemplates
-        
-        template = MessageTemplates.break_stats(user_name, self.pause_number, steps, calories, distance)
         
         try:
             from requests import post
             
-            # Füge TEST-Hinweis hinzu
-            template['description'] += "\n\n🧪 **TEST MODE** (10s = 10 Min)"
+            description = f"""
+👤 **User:** {user_name}
+⏱️ **Pause:** #{self.pause_number}
+
+**🏃 Bewegung:**
+👣 Schritte: **{steps:,}**
+🔥 Kalorien: ~{calories} kcal
+📏 Distanz: ~{distance}m
+"""
+            
+            if co2_stats:
+                description += f"""
+**💨 Luftqualität:**
+📊 CO2 Ø: **{co2_stats['avg_co2']} ppm**
+📉 Min: {co2_stats['min_co2']} ppm | 📈 Max: {co2_stats['max_co2']} ppm
+"""
+                if co2_stats['avg_tvoc']:
+                    description += f"🌿 TVOC Ø: {co2_stats['avg_tvoc']} ppb\n"
+                
+                if co2_stats['alarm_count'] > 0:
+                    description += f"⚠️ **{co2_stats['alarm_count']} Luftqualitäts-Alarm(e)**\n"
+                
+                avg_co2 = co2_stats['avg_co2']
+                if avg_co2 < 600:
+                    description += "\n✅ **Luftqualität: Sehr gut!**"
+                elif avg_co2 < 800:
+                    description += "\n🟡 **Luftqualität: Okay**"
+                else:
+                    description += "\n🔴 **Luftqualität: Lüften empfohlen!**"
+            
+            description += "\n\n🧪 **TEST MODE** (10s = 10 Min)"
+            
+            color = 0x00FF00
+            if co2_stats:
+                if co2_stats['avg_co2'] >= 800:
+                    color = 0xFF0000
+                elif co2_stats['avg_co2'] >= 600:
+                    color = 0xFFAA00
             
             payload = {
                 "embeds": [{
-                    "title": template['title'],
-                    "description": template['description'],
-                    "color": template['color'],
+                    "title": f"☕ Pause #{self.pause_number} beendet!",
+                    "description": description,
+                    "color": color,
                     "timestamp": datetime.utcnow().isoformat(),
                     "footer": {"text": "Break Station - PiTop 2 [TEST]"}
                 }]
@@ -252,7 +362,7 @@ class TestBreakStation:
             response = post(self.notify.webhook_url, json=payload, timeout=5)
             
             if response.status_code == 204:
-                print("✅ Discord-Benachrichtigung versendet (TEST)")
+                print("✅ Discord-Benachrichtigung versendet")
         
         except Exception as e:
             print(f"⚠️ Discord-Fehler: {e}")
@@ -271,20 +381,24 @@ class TestBreakStation:
         print("\n🧪 TEST-MODUS:")
         print(f"   ⚡ Pausenphase: {TEST_BREAK_DURATION}s (statt 10 Min)")
         print(f"   📊 DB Multiplikator: x{DB_MULTIPLIER}")
-        print(f"   💾 DB speichert als: {TEST_BREAK_DURATION * DB_MULTIPLIER}s")
+        print(f"   💨 CO2-Daten: Werden aus DB geladen")
         
         print("\n💡 FUNKTIONSWEISE:")
         print("   1. 🔄 Pollt DB (jede Sekunde)")
         print("   2. ✅ Erkennt timer_status='break'")
         print("   3. 🏃 Startet StepCounter")
         print("   4. ⏱️ Läuft 10 Sekunden")
-        print("   5. 💾 Speichert Daten (als 10 Min)")
-        print("   6. 📱 Sendet Discord")
+        print("   5. 💨 Holt CO2-Daten aus DB")
+        print("   6. 💾 Speichert Break-Daten")
+        print("   7. 📱 Sendet Discord (mit CO2)")
+        
+        print("\n⚠️ HINWEIS:")
+        print("   PiTop 2 hat KEINE Buttons!")
+        print("   Steuerung erfolgt über PiTop 1")
         
         print("\n" + "="*60)
         print("👉 Warte auf Break-Signal von PiTop 1...\n")
         
-        # Starte Polling
         self.start_polling()
         
         try:

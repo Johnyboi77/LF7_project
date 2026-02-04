@@ -10,7 +10,7 @@ import sys
 
 # ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
 if '--device=' not in ' '.join(sys.argv):
-    os.environ['DEVICE_OVERRIDE'] = 'pitop1'  # Default für diesen Test
+    os.environ['DEVICE_OVERRIDE'] = 'pitop1'
 
 import signal
 import time
@@ -26,6 +26,7 @@ from database.supabase_manager import SupabaseManager
 TEST_WORK_DURATION = 30      # 30 Sekunden (statt 1800s)
 TEST_BREAK_DURATION = 10     # 10 Sekunden (statt 600s)
 DB_MULTIPLIER = 60           # Werte x60 für DB (als Minuten speichern)
+CO2_LOG_INTERVAL = 6         # Alle 6 Aufrufe loggen (bei 5s Loop = alle 30s)
 
 
 class TestLearningSession:
@@ -56,6 +57,12 @@ class TestLearningSession:
         self.co2_alarm_active = False
         self.last_co2_warning = None
         
+        # Action History für Storno
+        self.action_history = []
+        
+        # CO2 Logging Counter
+        self.co2_log_counter = 0
+        
         # Test Stats
         self.test_work_time = 0
         self.test_break_time = 0
@@ -67,44 +74,29 @@ class TestLearningSession:
         return SupabaseManager()
     
     def _setup_callbacks(self):
-        self.button1.on_short_press(self._btn1_short)
-        self.button1.on_long_press(self._btn1_long)
-        self.button1.on_double_click(self._cancel_last_action)
+        """Setup der neuen Button-Logik"""
         
-        self.button2.on_short_press(self._btn2_short)
-        self.button2.on_double_click(self._cancel_last_action)
+        # Status-Check Callbacks setzen
+        self.button1.set_work_active_check(self._is_work_active)
+        self.button2.set_work_active_check(self._is_work_active)
+        
+        # Button 1: Nur Arbeitsphase starten
+        self.button1.on_short_press(self._start_work_session)
+        
+        # Button 2: Pause, Storno, Session beenden
+        self.button2.on_short_press(self._start_break)
+        self.button2.on_cancel(self._cancel_last_action)
+        self.button2.on_end_session(self._end_session)
     
-    # ===== BUTTON CALLBACKS =====
-    
-    def _btn1_short(self):
-        if self.state == "IDLE":
-            self._start_work_session()
-        elif self.state == "BREAK" and not self.timer.is_running:
-            self._resume_work_session()
-    
-    def _btn1_long(self):
-        if self.state in ["WORKING", "BREAK"]:
-            self._end_session()
-    
-    def _btn2_short(self):
-        if self.state == "WORKING":
-            self._start_break()
-    
-    def _cancel_last_action(self):
-        print("↩️  LETZTE AKTION STORNIERT (TEST)")
-        if self.state == "WORKING":
-            self.timer.reset()
-            self.state = "IDLE"
-            self.led.off()  # ✅ LED aus bei Reset
-        elif self.state == "BREAK":
-            self.timer.reset()
-            self.state = "IDLE"
-            self.led.off()  # ✅ LED aus bei Reset
+    def _is_work_active(self):
+        """Prüft ob gerade eine Arbeitsphase läuft"""
+        return self.state == "WORKING"
     
     # ===== WORK SESSION =====
     
     def _start_work_session(self):
-        if self.state != "IDLE":
+        if self.state == "WORKING":
+            print("⚠️ Arbeitsphase läuft bereits!")
             return
         
         print("\n" + "="*60)
@@ -113,15 +105,24 @@ class TestLearningSession:
         
         self.state = "WORKING"
         
-        # Session in DB erstellen
-        self.session_id = self.db.create_session()
-        self.timer.set_session_id(self.session_id)
+        # Action History
+        self.action_history.append({
+            'type': 'work_start',
+            'time': time.time()
+        })
         
-        # UI Feedback (KEINE LED mehr!)
+        # CO2 Counter zurücksetzen
+        self.co2_log_counter = 0
+        
+        # Session in DB erstellen (nur wenn noch keine existiert)
+        if not self.session_id:
+            self.session_id = self.db.create_session()
+            self.timer.set_session_id(self.session_id)
+            # Discord nur bei erster Arbeitsphase
+            self.notify.send_session_start()
+        
+        # UI Feedback
         self.buzzer.beep(0.2)
-        
-        # Discord
-        self.notify.send_session_start()
         
         # TEST: 30s Timer
         self._run_work_timer()
@@ -133,42 +134,56 @@ class TestLearningSession:
         
         try:
             while time.time() - start_time < TEST_WORK_DURATION:
+                # Prüfen ob State noch WORKING (könnte durch Storno geändert worden sein)
+                if self.state != "WORKING":
+                    print("\n⚠️ Arbeitsphase wurde unterbrochen")
+                    return
+                
                 elapsed = time.time() - start_time
                 remaining = TEST_WORK_DURATION - elapsed
+                
+                # CO2 während Arbeit überwachen
+                self._monitor_co2()
                 
                 print(f"\r⏱️ Arbeit: {int(remaining)}s verbleibend", 
                       end='', flush=True)
                 
-                sleep(1)
+                sleep(5)  # 5s Intervall für CO2
             
-            print(f"\n\n⏰ ARBEITSPHASE ABGELAUFEN! (30s = 30 Min simuliert)")
-            
-            # Speichere in DB mit x60 Multiplikator
-            self.test_work_time += TEST_WORK_DURATION
-            
-            # Buzzer
-            self.buzzer.long_beep(1.0)
-            
-            print("✅ Arbeitsphase beendet - Drücke Button 2 für Pause\n")
+            # Timer regulär abgelaufen
+            if self.state == "WORKING":
+                print(f"\n\n⏰ ARBEITSPHASE ABGELAUFEN! (30s = 30 Min simuliert)")
+                
+                # Speichere in DB mit x60 Multiplikator
+                self.test_work_time += TEST_WORK_DURATION
+                
+                # Buzzer
+                self.buzzer.long_beep(1.0)
+                
+                # State auf WORK_DONE - wartet auf Pause
+                self.state = "WORK_DONE"
+                
+                print("✅ Arbeitsphase beendet - Drücke Button 2 für Pause\n")
         
         except KeyboardInterrupt:
             print(f"\n⚠️ Timer unterbrochen!")
     
-    def _resume_work_session(self):
-        print("\n" + "="*60)
-        print("🧪 TEST - ARBEITSPHASE FORTGESETZT (30s)")
-        print("="*60)
-        
-        self.state = "WORKING"
-        # KEINE LED mehr!
-        self.buzzer.beep(0.2)
-        
-        self._run_work_timer()
-    
     # ===== BREAK SESSION =====
     
     def _start_break(self):
-        if self.state != "WORKING":
+        """Pause starten - nur wenn keine Arbeitsphase aktiv"""
+        
+        if self.state == "WORKING":
+            print("⚠️ Arbeitsphase läuft noch - zuerst beenden lassen!")
+            return
+        
+        if self.state not in ["WORK_DONE", "IDLE"]:
+            print(f"⚠️ Pause nicht möglich im Status: {self.state}")
+            return
+        
+        # Wenn IDLE und keine Session, erstmal Session starten
+        if self.state == "IDLE" and not self.session_id:
+            print("⚠️ Zuerst Arbeitsphase mit Button 1 starten!")
             return
         
         print("\n" + "="*60)
@@ -178,11 +193,13 @@ class TestLearningSession:
         
         self.state = "BREAK"
         
-        # Timer stoppen
-        self.timer.stop_event.set()
-        self.timer.is_running = False
+        # Action History
+        self.action_history.append({
+            'type': 'break_start',
+            'time': time.time()
+        })
         
-        # UI Feedback (KEINE LED mehr!)
+        # UI Feedback
         self.buzzer.beep(0.2)
         
         # Discord
@@ -218,6 +235,11 @@ class TestLearningSession:
         
         try:
             while time.time() - start_time < TEST_BREAK_DURATION:
+                # Prüfen ob State noch BREAK
+                if self.state != "BREAK":
+                    print("\n⚠️ Pause wurde unterbrochen")
+                    return
+                
                 elapsed = time.time() - start_time
                 remaining = TEST_BREAK_DURATION - elapsed
                 
@@ -235,14 +257,14 @@ class TestLearningSession:
             print(f"\n\n⚠️ Break unterbrochen!")
         
         finally:
-            self._end_break()
+            if self.state == "BREAK":
+                self._end_break()
     
     def _end_break(self):
         print("\n" + "="*60)
         print("☕ BREAK BEENDET (TEST)")
         print("="*60)
         
-        # KEINE LED-Änderung (nur CO2 steuert LED)
         self.buzzer.beep(0.1)
         
         # Update DB
@@ -254,23 +276,58 @@ class TestLearningSession:
         self.state = "IDLE"
         
         print("✅ Bereit für nächste Arbeitsphase!")
-        print("👉 Drücke Button 1 zum Weitermachen\n")
+        print("👉 Drücke Button 1 zum Weitermachen")
+        print("👉 Oder Button 2 (7s) zum Session beenden\n")
+    
+    # ===== STORNO =====
+    
+    def _cancel_last_action(self):
+        """Letzte Aktion stornieren (Button 2, 3s)"""
+        
+        print("\n" + "="*60)
+        print("↩️ STORNO - Letzte Aktion wird rückgängig gemacht")
+        print("="*60)
+        
+        if not self.action_history:
+            print("⚠️ Keine Aktion zum Stornieren vorhanden!")
+            return
+        
+        last_action = self.action_history.pop()
+        action_type = last_action['type']
+        
+        if action_type == 'work_start':
+            print("↩️ Arbeitsphase storniert")
+            self.state = "IDLE"
+            self.led.off()
+            # Wenn es die erste Arbeitsphase war, Session-ID zurücksetzen
+            if len(self.action_history) == 0:
+                self.session_id = None
+        
+        elif action_type == 'break_start':
+            print("↩️ Pause storniert")
+            self.state = "WORK_DONE"
+            self._update_break_status('work_ready')
+        
+        self.buzzer.beep(0.1)
+        print(f"✅ Storno abgeschlossen - Status: {self.state}\n")
     
     # ===== SESSION BEENDEN =====
     
     def _end_session(self):
+        """Session komplett beenden (Button 2, 7s)"""
+        
         print("\n" + "="*60)
         print("🛑 TEST SESSION BEENDET")
         print("="*60)
         
         self.state = "DONE"
         
-        # Timer stoppen
+        # Timer stoppen falls läuft
         self.timer.stop_event.set()
         self.timer.is_running = False
         
         # UI
-        self.led.off()  # ✅ LED aus bei Session-Ende
+        self.led.off()
         self.buzzer.long_beep(2.0)
         
         # Hochgerechnete Zeiten für DB
@@ -281,75 +338,87 @@ class TestLearningSession:
         print(f"   Echte Arbeitszeit: {self.test_work_time}s")
         print(f"   DB Arbeitszeit: {db_work_time}s ({db_work_time // 60} Min)")
         print(f"   Echte Pausenzeit: {self.test_break_time}s")
-        print(f"   DB Pausenzeit: {db_break_time}s ({db_break_time // 60} Min)\n")
+        print(f"   DB Pausenzeit: {db_break_time}s ({db_break_time // 60} Min)")
+        print(f"   Aktionen: {len(self.action_history)}\n")
         
         # Report aus DB holen
-        report_data = self.db.get_session_report_data(self.session_id)
-        
-        # Session in DB beenden (mit hochgerechneten Werten)
-        self.db.end_session(
-            self.session_id,
-            db_work_time,
-            db_break_time
-        )
-        
-        # Report
-        if report_data:
-            self.notify.print_terminal_report(report_data)
-            self.notify.send_session_report(report_data)
+        if self.session_id:
+            report_data = self.db.get_session_report_data(self.session_id)
+            
+            # Session in DB beenden
+            self.db.end_session(
+                self.session_id,
+                db_work_time,
+                db_break_time
+            )
+            
+            # Report
+            if report_data:
+                self.notify.print_terminal_report(report_data)
+                self.notify.send_session_report(report_data)
         
         # Reset
         self.session_id = None
         self.test_work_time = 0
         self.test_break_time = 0
+        self.co2_log_counter = 0
+        self.action_history.clear()
+        self.state = "IDLE"
         
         print("\n✅ Test abgeschlossen - Ready für neue Session!\n")
     
-    # ===== CO2 MONITORING (reduziert für Tests) =====
+    # ===== CO2 MONITORING =====
     
     def _monitor_co2(self):
-        """🌡️ CO2-Überwachung - LED NUR für CO2-Warnung!"""
+        """🌡️ CO2-Überwachung mit DB-Logging alle 30s"""
         
         try:
             alarm_status = self.co2.get_alarm_status()
             co2_level = self.co2.read()
             tvoc_level = self.co2.tvoc_level
             
-            # CO2-Wert in DB speichern!
-            if self.session_id and co2_level:
-                is_alarm = alarm_status in ["warning", "critical"]
+            # Counter erhöhen
+            self.co2_log_counter += 1
+            
+            # Nur alle 6 Aufrufe loggen (30s) ODER bei Alarm
+            is_alarm = alarm_status in ["warning", "critical"]
+            should_log = (self.co2_log_counter >= CO2_LOG_INTERVAL) or is_alarm
+            
+            if self.session_id and co2_level and should_log:
                 self.db.log_co2(
                     session_id=self.session_id,
                     co2_level=co2_level,
                     tvoc_level=tvoc_level,
                     is_alarm=is_alarm,
                     alarm_type=alarm_status if is_alarm else None
-            )
-
-            # ===== CRITICAL (> 800 ppm) =====
+                )
+                self.co2_log_counter = 0
+                print(f"\n💨 CO2 geloggt: {co2_level} ppm")
+            
+            # CRITICAL (> 800 ppm)
             if alarm_status == "critical":
                 if not self.co2_alarm_active:
                     print(f"\n🚨 CO2 KRITISCH: {co2_level} ppm")
-                    self.led.on()  # ✅ Dauerhaft an (kein Blinken!)
+                    self.led.on()
                     self.buzzer.co2_alarm()
                     self.co2_alarm_active = True
             
-            # ===== WARNING (600-800 ppm) =====
+            # WARNING (600-800 ppm)
             elif alarm_status == "warning":
                 if not self.co2_alarm_active:
                     print(f"\n⚠️ CO2 WARNING: {co2_level} ppm")
-                    self.led.on()  # ✅ Dauerhaft an
+                    self.led.on()
                     self.co2_alarm_active = True
             
-            # ===== OK (< 600 ppm) =====
+            # OK (< 600 ppm)
             else:
                 if self.co2_alarm_active:
-                    print(f"✅ CO2 normal: {co2_level} ppm")
+                    print(f"\n✅ CO2 normal: {co2_level} ppm")
                     self.co2_alarm_active = False
-                    self.led.off()  # ✅ IMMER aus bei normalem CO2
+                    self.led.off()
         
         except Exception as e:
-            print(f"⚠️ CO2-Monitoring Fehler: {e}")
+            print(f"\n⚠️ CO2-Monitoring Fehler: {e}")
     
     # ===== MAIN LOOP =====
     
@@ -364,23 +433,27 @@ class TestLearningSession:
         print(f"   ⚡ Arbeitsphase: {TEST_WORK_DURATION}s (statt 30 Min)")
         print(f"   ⚡ Pausenphase: {TEST_BREAK_DURATION}s (statt 10 Min)")
         print(f"   📊 DB Multiplikator: x{DB_MULTIPLIER}")
-        print(f"   💡 LED: NUR für CO2-Warnung (kein Status-Feedback)")
+        print(f"   💨 CO2 Logging: alle {CO2_LOG_INTERVAL * 5}s")
         
-        print("\n🎯 KONTROLLEN:")
-        print("  🔘 Button 1 kurz  → Lernphase starten")
-        print("  🔘 Button 2 kurz  → Pause starten")
-        print("  🔘 Button 1 lang  → Session beenden")
+        print("\n🎮 NEUE BUTTON-STEUERUNG:")
+        print("  ┌─────────────────────────────────────────┐")
+        print("  │ BUTTON 1 (D0):                          │")
+        print("  │   • Kurz drücken = Arbeitsphase starten │")
+        print("  │     (nur wenn keine läuft)              │")
+        print("  ├─────────────────────────────────────────┤")
+        print("  │ BUTTON 2 (D1):                          │")
+        print("  │   • Kurz drücken = Pause starten        │")
+        print("  │     (nur wenn Arbeit beendet)           │")
+        print("  │   • 3s halten = STORNO letzte Aktion    │")
+        print("  │   • 7s halten = SESSION BEENDEN         │")
+        print("  └─────────────────────────────────────────┘")
         
         print("\n" + "="*60)
         print("👉 Starte Test mit Button 1!\n")
         
         try:
             while True:
-                # CO2 überwachen (alle 5s)
-                if self.state in ["WORKING", "BREAK"]:
-                    self._monitor_co2()
-                
-                sleep(5)
+                sleep(1)
         
         except KeyboardInterrupt:
             self._cleanup()
@@ -388,12 +461,14 @@ class TestLearningSession:
     def _cleanup(self):
         print("\n\n🛑 Test beendet")
         
-        if self.state != "IDLE":
+        if self.state not in ["IDLE", "DONE"]:
             print("⚠️ Session nicht ordnungsgemäß beendet!")
         
         self.led.off()
         self.buzzer.off()
         self.timer.stop_event.set()
+        self.button1.cleanup()
+        self.button2.cleanup()
         
         print("✅ Cleanup abgeschlossen\n")
 

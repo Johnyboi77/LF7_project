@@ -1,43 +1,50 @@
 #!/usr/bin/env python3
 """
-pi-top 2 - Pausenstation mit Schrittzähler
-AUTOMATISCHER StepCounter-Start via Datenbank-Polling
+🧪 TEST MODE - pi-top 2
+Schnelldurchlauf: 10s Pause
+DB speichert hochgerechnete Werte (x60)
+Holt CO2-Daten aus DB für Report
 """
 
 import os
 import sys
 
-# ⚠️ DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
+# DEVICE_OVERRIDE MUSS VOR allen anderen Imports stehen!
 if '--device=' not in ' '.join(sys.argv):
-    os.environ['DEVICE_OVERRIDE'] = 'pitop2'  # Default für diesen Test
+    os.environ['DEVICE_OVERRIDE'] = 'pitop2'
 
 import signal
 import time
 from datetime import datetime
-from threading import Thread, Event
+from threading import Thread
 import config
 from hardware import StepCounter
-from services.timer_service import TimerService
 from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
+
+# TEST MODE CONFIGURATION
+BREAK_DURATION = 600     # 10 Minuten (statt 600s)
+DB_MULTIPLIER = 1           # Werte x60 für DB
 
 
 class BreakStation:
     def __init__(self):
         print("\n" + "="*60)
-        print("☕ BREAK STATION - pi-top 2")
+        print("🧪 TEST MODE - BREAK STATION - pi-top 2")
         print("="*60)
+        print("⚡ Schnelldurchlauf aktiviert!")
+        print(f"   Pausenphase: {BREAK_DURATION}s → DB: {BREAK_DURATION * DB_MULTIPLIER}s")
+        print("="*60 + "\n")
         
-        # Hardware (NUR Schrittzähler)
-        self.steps = StepCounter() 
-        # I2C Address 0x14 hardcoded - bekommt automatisch die Daten aus hardware/step_counter.py
+        # Hardware
+        self.steps = StepCounter()
         
         # Services
         self.notify = NotificationService()
         self.db = SupabaseManager()
         
         # State
-        self.state = "IDLE"  # IDLE → BREAK → IDLE
+        self.state = "IDLE"
         self.session_id = None
         self.pause_number = 0
         self.pause_start_time = None
@@ -48,23 +55,22 @@ class BreakStation:
         self.polling_thread = None
         self.last_session_id = None
         
+        # Break kann von außen abgebrochen werden
+        self.break_cancelled = False
+        
         print(f"✅ Initialisierung abgeschlossen\n")
     
-    # ===== POLLING (Kontinuierliche DB-Abfrage) =====
+    # ===== POLLING =====
     
     def start_polling(self):
-        """🔄 Startet Polling-Thread (kontinuierliche DB-Abfrage)"""
-        
-        print("⏳ Starte Datenbank-Polling...")
+        print("⏳ Starte Datenbank-Polling (TEST)...")
         print("   → Suche nach timer_status='break' alle 1 Sekunde\n")
         
         self.polling_thread = Thread(target=self._polling_loop, daemon=True)
         self.polling_thread.start()
     
     def _polling_loop(self):
-        """🔄 Polling-Hauptschleife (läuft in separatem Thread)"""
-        
-        poll_interval = 1  # Jede Sekunde checken
+        poll_interval = 1
         
         while self.polling_active:
             try:
@@ -72,7 +78,6 @@ class BreakStation:
                     time.sleep(poll_interval)
                     continue
                 
-                # Hole letzte Session
                 result = self.db.client.table('sessions')\
                     .select('session_id, pause_count, user_name, timer_status')\
                     .order('start_time', desc=True)\
@@ -87,123 +92,179 @@ class BreakStation:
                 session_id = session['session_id']
                 status = session.get('timer_status', 'idle')
                 
-                # ===== BREAK SIGNAL ERKANNT =====
+                # BREAK SIGNAL
                 if status == 'break' and session_id != self.last_session_id:
                     self.last_session_id = session_id
                     
-                    # Neue Session mit Break-Status
                     self.session_id = session_id
-                    self.pause_number = session.get('pause_count', 0)
+                    self.pause_number = session.get('pause_count', 0) + 1
                     self.user_name = session.get('user_name', 'User')
                     
-                    print(f"\n✅ BREAK-SIGNAL ERKANNT!")
+                    print(f"\n✅ BREAK-SIGNAL ERKANNT (TEST)!")
                     print(f"   Session: {session_id[:8]}...")
-                    print(f"   Status: {status}")
                     print(f"   User: {self.user_name}")
                     print(f"   Pause #{self.pause_number}\n")
                     
-                    # Starte Break sofort
                     self._start_break(self.user_name)
                     
-                    # Danach wieder warten
                     self.last_session_id = None
                 
-                # ===== WORK_READY (Break vorbei) =====
-                elif status == 'work_ready' and session_id == self.last_session_id:
-                    # Wurde bereits durch _end_break() abgehandelt
-                    pass
+                # SESSION BEENDET - Reset
+                elif status in ['ended', 'cancelled']:
+                    if self.state == "BREAK":
+                        print("\n⚠️ Session wurde von PiTop 1 beendet!")
+                        self.break_cancelled = True
+                    self.last_session_id = None
                 
                 time.sleep(poll_interval)
             
             except KeyboardInterrupt:
                 break
             except Exception as e:
-                print(f"⚠️  Polling Fehler: {e}")
+                print(f"⚠️ Polling Fehler: {e}")
                 time.sleep(poll_interval)
+    
+    # ===== CO2 DATA FROM DB =====
+    
+    def _get_co2_stats(self):
+        """🌡️ Holt CO2-Statistiken aus der Datenbank"""
+        if not self.db.client or not self.session_id:
+            return None
+        
+        try:
+            result = self.db.client.table('co2_measurements')\
+                .select('co2_level, tvoc_level, is_alarm')\
+                .eq('session_id', self.session_id)\
+                .execute()
+            
+            if not result.data:
+                print("ℹ️  Keine CO2-Daten gefunden")
+                return None
+            
+            co2_values = [row['co2_level'] for row in result.data if row['co2_level']]
+            tvoc_values = [row['tvoc_level'] for row in result.data if row.get('tvoc_level')]
+            alarm_count = sum(1 for row in result.data if row.get('is_alarm'))
+            
+            if not co2_values:
+                return None
+            
+            stats = {
+                'avg_co2': int(sum(co2_values) / len(co2_values)),
+                'min_co2': min(co2_values),
+                'max_co2': max(co2_values),
+                'avg_tvoc': int(sum(tvoc_values) / len(tvoc_values)) if tvoc_values else 0,
+                'alarm_count': alarm_count,
+                'measurement_count': len(co2_values)
+            }
+            
+            print(f"📊 CO2-Daten geladen: {len(co2_values)} Messungen")
+            return stats
+        
+        except Exception as e:
+            print(f"⚠️ CO2-Daten Fehler: {e}")
+            return None
     
     # ===== BREAK SESSION =====
     
     def _start_break(self, user_name):
-        """☕ Startet Break-Phase (10 Min)"""
-        
         print("="*60)
-        print(f"☕ PAUSE #{self.pause_number} GESTARTET")
+        print(f"🧪 TEST - PAUSE #{self.pause_number} GESTARTET (10s)")
         print("="*60)
         print(f"\n👤 User: {user_name}")
-        print(f"⏱️  Dauer: {config.BREAK_DURATION // 60} Minuten")
+        print(f"⏱️  Dauer: {BREAK_DURATION}s (= 10 Min simuliert)")
         print(f"👣 Schrittzähler aktiv\n")
         
         self.state = "BREAK"
+        self.break_cancelled = False
         self.pause_start_time = time.time()
         
-        # ===== SCHRITTZÄHLER STARTEN (AUTOMATISCH) =====
+        # Schrittzähler starten
         print("🎯 Starte StepCounter AUTOMATISCH...\n")
         self.steps.start()
         
         # 10 Minuten Timer
-        break_duration = config.BREAK_DURATION
         start_time = time.time()
         
         try:
-            while time.time() - start_time < break_duration:
-                elapsed = time.time() - start_time
-                remaining = break_duration - elapsed
+            while time.time() - start_time < BREAK_DURATION:
+                # Check ob Break von PiTop 1 abgebrochen wurde
+                if self.break_cancelled:
+                    print("\n\n⚠️ Break wurde extern abgebrochen!")
+                    break
                 
-                mins, secs = divmod(int(remaining), 60)
+                elapsed = time.time() - start_time
+                remaining = BREAK_DURATION - elapsed
+                
                 steps = self.steps.read()
                 
-                print(f"\r⏱️  {mins:02d}:{secs:02d} verbleibend | 👣 {steps:,} Schritte", 
+                print(f"\r⏱️ {int(remaining)}s verbleibend | 👣 {steps:,} Schritte", 
                       end='', flush=True)
                 
                 time.sleep(1)
             
-            print(f"\n\n⏰ PAUSE ABGELAUFEN!")
+            if not self.break_cancelled:
+                print(f"\n\n⏰ PAUSE ABGELAUFEN!")
         
         except KeyboardInterrupt:
-            print(f"\n\n⚠️  Pause unterbrochen!")
+            print(f"\n\n⚠️ Pause unterbrochen!")
         
         finally:
             self._end_break(user_name)
     
     def _end_break(self, user_name):
-        """☕ Beendet Break und speichert Daten"""
-        
         self.state = "IDLE"
         
         # Schrittzähler stoppen
         steps = self.steps.stop()
         
-        # Berechne Statistiken
-        calories = int(steps * 0.05)  # ~0.05 kcal pro Schritt
-        distance = int(steps * 0.75)  # ~0.75m pro Schritt
+        # Statistiken
+        calories = int(steps * 0.05)
+        distance = int(steps * 0.75)
+        
+        # CO2-Daten aus DB holen
+        co2_stats = self._get_co2_stats()
         
         print("\n" + "="*60)
-        print(f"📊 PAUSE #{self.pause_number} STATISTIK")
+        print(f"📊 TEST - PAUSE #{self.pause_number} STATISTIK")
         print("="*60)
         print(f"\n👣 Schritte:     {steps:,}")
         print(f"🔥 Kalorien:     ~{calories} kcal")
-        print(f"📏 Distanz:      ~{distance}m\n")
+        print(f"📏 Distanz:      ~{distance}m")
         
-        # In DB speichern
-        self._save_break_data(steps, calories, distance)
+        # CO2-Stats anzeigen
+        if co2_stats:
+            print(f"\n💨 CO2 Durchschnitt: {co2_stats['avg_co2']} ppm")
+            print(f"💨 CO2 Min/Max:      {co2_stats['min_co2']}/{co2_stats['max_co2']} ppm")
+            if co2_stats['avg_tvoc']:
+                print(f"🌿 TVOC Durchschnitt: {co2_stats['avg_tvoc']} ppb")
+            if co2_stats['alarm_count'] > 0:
+                print(f"⚠️  Alarme:          {co2_stats['alarm_count']}")
         
-        # Discord Benachrichtigung (UPDATED: nutzt jetzt send_break_stats())
-        self.notify.send_break_stats(self.pause_number, steps, calories, distance)
+        print(f"\n💾 Echte Zeit: {BREAK_DURATION}s")
+        print(f"💾 DB Zeit: {BREAK_DURATION * DB_MULTIPLIER}s ({BREAK_DURATION * DB_MULTIPLIER // 60} Min)\n")
         
-        # Session Status zurück auf 'ready'
-        self._update_session_status('work_ready')
+        # Nur speichern wenn nicht abgebrochen
+        if not self.break_cancelled:
+            # DB speichern
+            self._save_break_data(steps, calories, distance)
+            
+            # Discord mit CO2-Daten
+            self._send_break_notification(user_name, steps, calories, distance, co2_stats)
+            
+            # Status update
+            self._update_session_status('work_ready')
+        else:
+            print("⚠️ Break wurde abgebrochen - keine Daten gespeichert")
         
-        # Schrittzähler zurücksetzen
+        # Reset
         self.steps.reset()
+        self.break_cancelled = False
         
-        print("✅ Break-Daten gespeichert")
         print("✅ Bereit für nächste Pause!\n")
     
     def _save_break_data(self, steps, calories, distance):
-        """💾 Speichert Break-Daten in DB"""
-        
         if not self.db.client or not self.session_id:
-            print("⚠️  Kann Break-Daten nicht speichern (DB nicht verfügbar)")
+            print("⚠️ Kann Break-Daten nicht speichern")
             return
         
         try:
@@ -213,75 +274,133 @@ class BreakStation:
                 'step_count': steps,
                 'calories_burned': calories,
                 'distance_meters': distance,
-                'device_id': config.DEVICE_ID,
-                'created_at': datetime.utcnow().isoformat(),
+                'device_id': config.DEVICE_ID + "",
+                'created_at': datetime.utcnow().isoformat()
             }
             
             result = self.db.client.table('breakdata').insert(data).execute()
             
             if result.data:
                 print("✅ Break-Daten in DB gespeichert")
-            else:
-                print("⚠️  DB-Insert fehlgeschlagen")
         
         except Exception as e:
             print(f"❌ DB-Fehler: {e}")
     
     def _update_session_status(self, status):
-        """📊 Aktualisiert Session-Status in DB"""
-        
         if not self.db.client or not self.session_id:
             return
         
         try:
+            # Auch pause_count erhöhen
             self.db.client.table('sessions').update({
-                'timer_status': status
+                'timer_status': status,
+                'pause_count': self.pause_number
             }).eq('session_id', self.session_id).execute()
             
             print(f"📊 Session Status: {status}")
         
         except Exception as e:
-            print(f"⚠️  Status-Update Fehler: {e}")
+            print(f"⚠️ Status-Update Fehler: {e}")
+    
+    def _send_break_notification(self, user_name, steps, calories, distance, co2_stats=None):
+        """📱 Discord-Benachrichtigung mit CO2-Daten"""
+        if not self.notify.is_enabled:
+            return
+        
+        try:
+            from requests import post
+            
+            description = f"""
+👤 **User:** {user_name}
+⏱️ **Pause:** #{self.pause_number}
+
+**🏃 Bewegung:**
+👣 Schritte: **{steps:,}**
+🔥 Kalorien: ~{calories} kcal
+📏 Distanz: ~{distance}m
+"""
+            
+            if co2_stats:
+                description += f"""
+**💨 Luftqualität:**
+📊 CO2 Ø: **{co2_stats['avg_co2']} ppm**
+📉 Min: {co2_stats['min_co2']} ppm | 📈 Max: {co2_stats['max_co2']} ppm
+"""
+                if co2_stats['avg_tvoc']:
+                    description += f"🌿 TVOC Ø: {co2_stats['avg_tvoc']} ppb\n"
+                
+                if co2_stats['alarm_count'] > 0:
+                    description += f"⚠️ **{co2_stats['alarm_count']} Luftqualitäts-Alarm(e)**\n"
+                
+                avg_co2 = co2_stats['avg_co2']
+                if avg_co2 < 600:
+                    description += "\n✅ **Luftqualität: Sehr gut!**"
+                elif avg_co2 < 800:
+                    description += "\n🟡 **Luftqualität: Okay**"
+                else:
+                    description += "\n🔴 **Luftqualität: Lüften empfohlen!**"
+            
+            description += "\n\n🧪 **TEST MODE** (10s = 10 Min)"
+            
+            color = 0x00FF00
+            if co2_stats:
+                if co2_stats['avg_co2'] >= 800:
+                    color = 0xFF0000
+                elif co2_stats['avg_co2'] >= 600:
+                    color = 0xFFAA00
+            
+            payload = {
+                "embeds": [{
+                    "title": f"☕ Pause #{self.pause_number} beendet!",
+                    "description": description,
+                    "color": color,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "footer": {"text": "Break Station - PiTop 2 [TEST]"}
+                }]
+            }
+            
+            response = post(self.notify.webhook_url, json=payload, timeout=5)
+            
+            if response.status_code == 204:
+                print("✅ Discord-Benachrichtigung versendet")
+        
+        except Exception as e:
+            print(f"⚠️ Discord-Fehler: {e}")
     
     # ===== MAIN =====
     
     def start(self):
-        """Startet Break-Station"""
-        
         print("\n" + "="*60)
-        print("✅ BREAK STATION AKTIV")
+        print("✅ TEST BREAK STATION AKTIV")
         print("="*60)
         print(f"\n🔧 Device: {config.DEVICE_ID}")
         print(f"📡 Supabase: {'✅' if self.db.client else '❌'}")
         print(f"🤖 Discord: {'✅' if self.notify.is_enabled else '❌'}")
         print(f"📊 Schrittzähler: ✅")
         
+        print("\n🧪 TEST-MODUS:")
+        print(f"   ⚡ Pausenphase: {BREAK_DURATION}s (statt 10 Min)")
+        print(f"   📊 DB Multiplikator: x{DB_MULTIPLIER}")
+        print(f"   💨 CO2-Daten: Werden aus DB geladen")
+        
         print("\n💡 FUNKTIONSWEISE:")
-        print("   1. 🔄 Pollt DB kontinuierlich (jede Sekunde)")
-        print("   2. ✅ Erkennt timer_status='break' automatisch")
-        print("   3. 🏃 Startet StepCounter SOFORT")
-        print("   4. 👣 Zählt Schritte während 10-Min Pause")
-        print("   5. 💾 Speichert Daten in DB")
-        print("   6. 📱 Sendet Discord-Push")
-        print("   7. 🔄 Bereit für nächste Pause")
+        print("   1. 🔄 Pollt DB (jede Sekunde)")
+        print("   2. ✅ Erkennt timer_status='break'")
+        print("   3. 🏃 Startet StepCounter")
+        print("   4. ⏱️ Läuft 10 Minuten")
+        print("   5. 💨 Holt CO2-Daten aus DB")
+        print("   6. 💾 Speichert Break-Daten")
+        print("   7. 📱 Sendet Discord (mit CO2)")
         
-        print("\n📱 DISCORD:")
-        if self.notify.is_enabled:
-            print("   ✅ Push-Benachrichtigungen aktiviert")
-        else:
-            print("   ⚠️  Webhook nicht konfiguriert")
-        
-        print("\n⚡ POLLING:")
-        print("   ⏱️  Interval: 1 Sekunde")
-        print("   🎯 Reaktionszeit: <1 Sekunde nach DB-Update")
+        print("\n⚠️ HINWEIS:")
+        print("   PiTop 2 hat KEINE Buttons!")
+        print("   Steuerung erfolgt über PiTop 1")
         
         print("\n" + "="*60)
-        print("👉 Drücke STRG+C zum Beenden\n")
+        print("👉 Warte auf Break-Signal von PiTop 1...\n")
         
-        # Starte Polling-Thread
         self.start_polling()
         
-        # Halte Hauptprogramm am Leben
         try:
             while True:
                 time.sleep(1)
@@ -290,9 +409,7 @@ class BreakStation:
             self.stop()
     
     def stop(self):
-        """Cleanup"""
-        
-        print("\n\n🛑 Break Station wird gestoppt...")
+        print("\n\n🛑 Test Break Station wird gestoppt...")
         
         self.polling_active = False
         
@@ -306,7 +423,6 @@ class BreakStation:
 
 
 def signal_handler(sig, frame):
-    """STRG+C Handler"""
     if 'station' in globals():
         station.stop()
     sys.exit(0)
