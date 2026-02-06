@@ -2,7 +2,7 @@
 #ausführen mit:  ./Push.sh
 
 REPO_PATH="/mnt/c/Users/knigh/LF7_project"
-REMOTE_URL="https://github.com/Johnyboi77/LF7_project.git"
+REMOTE_URL="https://github.com/Johnyboi77/lf7-keepalive.git"
 BRANCH="main"
 
 # TO change branch
