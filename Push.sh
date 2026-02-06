@@ -2,10 +2,10 @@
 #ausführen mit:  ./Push.sh
 
 REPO_PATH="/mnt/c/Users/knigh/LF7_project"
-REMOTE_URL="https://github.com/Johnyboi77/lf7_project_keepalive.git"
+REMOTE_URL="https://github.com/Johnyboi77/ lf7_project_keepalive.git"
 BRANCH="main"
 
-# lf7_project_keepalive
+# lf7_project_keepalive --> Für Cron
 # TO change branch
 # -->     git checkout -b dev
 
