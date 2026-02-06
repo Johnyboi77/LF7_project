@@ -17,14 +17,14 @@ Messbereich         CO2	400 - 60'000 ppm
 Messbereich TVOC	0 - 60'000 ppb
 
 >Benötigte Hardware
-┌─────────────────┐
-│     SGP30       │
-│                 │
-│  VCC ──────────────── 3.3V
-│  GND ──────────────── GND
-│  SDA ──────────────── I2C SDA (GPIO 2)
-│  SCL ──────────────── I2C SCL (GPIO 3)
-└─────────────────┘
+┌──────────────────────────────────────────┐
+│     SGP30                                │
+│                                          │
+│  VCC ──────────────── 3.3V               │
+│  GND ──────────────── GND                │
+│  SDA ──────────────── I2C SDA (GPIO 2)   │ 
+│  SCL ──────────────── I2C SCL (GPIO 3)   │
+└──────────────────────────────────────────┘
 Grove-Variante: Einfach in einen der I2C-Ports des Pi-Top stecken.
 
 >Benötigte Software
@@ -88,16 +88,16 @@ Auflösung	        16-bit
 
 >Benötigte Hardware
 
-┌─────────────────┐
-│    BMA456       │
-│   (Grove)       │
-│                 │
-│  VCC ──────────────── 3.3V
-│  GND ──────────────── GND
-│  SDA ──────────────── I2C SDA (GPIO 2)
-│  SCL ──────────────── I2C SCL (GPIO 3)
-│  SDO ──────────────── GND (für Addr 0x18)
-└─────────────────┘
+┌─────────────────────────────────────────────┐
+│    BMA456                                   │
+│   (Grove)                                   │
+│                                             │
+│  VCC ──────────────── 3.3V                  │
+│  GND ──────────────── GND                   │
+│  SDA ──────────────── I2C SDA (GPIO 2)      │
+│  SCL ──────────────── I2C SCL (GPIO 3)      │
+│  SDO ──────────────── GND (für Addr 0x18)   │
+└─────────────────────────────────────────────┘
 Grove-Variante: Einfach in einen der I2C-Ports des Pi-Top stecken.
 
 >Benötigte Software
@@ -147,21 +147,21 @@ I2C-Fehler	                Retry-Mechanismus (3 Versuche)
 │                  SCHRITTZÄHLUNG                         │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  1. Beschleunigung lesen (X, Y, Z)                     │
+│  1. Beschleunigung lesen (X, Y, Z)                      │
 │                    ↓                                    │
-│  2. Magnitude berechnen: √(x² + y² + z²)               │
+│  2. Magnitude berechnen: √(x² + y² + z²)                │
 │                    ↓                                    │
-│  3. Glättung (Moving Average, 5 Samples)               │
+│  3. Glättung (Moving Average, 5 Samples)                │
 │                    ↓                                    │
-│  4. Dynamische Baseline tracken (100 Samples)          │
+│  4. Dynamische Baseline tracken (100 Samples)           │
 │                    ↓                                    │
-│  5. Abweichung = Smoothed - Baseline                   │
+│  5. Abweichung = Smoothed - Baseline                    │
 │                    ↓                                    │
 │  6. Peak Detection:                                     │
-│     - Deviation > +0.12g → Peak Start                  │
-│     - Deviation < +0.04g → Peak Ende → SCHRITT!        │
+│     - Deviation > +0.12g → Peak Start                   │
+│     - Deviation < +0.04g → Peak Ende → SCHRITT!         │
 │                    ↓                                    │
-│  7. Min. Interval: 0.35s zwischen Schritten            │
+│  7. Min. Interval: 0.35s zwischen Schritten             │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 
