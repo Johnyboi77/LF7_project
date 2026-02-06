@@ -21,7 +21,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Alle Tests erfolgreich! - Bereit für Aufnahme"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Cron Job hinzugefügt"
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"
