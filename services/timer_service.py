@@ -1,4 +1,3 @@
-# services/timer_service.py
 """
 Timer Service mit Supabase-Integration
 Verwaltet Arbeits- und Pausenzeiten

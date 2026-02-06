@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Zentrale Konfiguration - Lädt automatisch .env.pitop1 oder .env.pitop2
 basierend auf dem Script-Namen oder DEVICE_OVERRIDE
@@ -10,7 +9,6 @@ from dotenv import load_dotenv
 
 # ===== .ENV LADEN =====
 def load_env_for_device():
-    """Lädt .env automatisch basierend auf Script-Namen oder Override"""
     
     # 1. PRIORITÄT: Environment Variable Override
     if os.environ.get('DEVICE_OVERRIDE'):

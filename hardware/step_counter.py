@@ -1,8 +1,6 @@
-
-#!/usr/bin/env python3
 """
 Step Counter für Grove BMA456
-Korrigierte Version mit richtiger Skalierung
+PORT: I2C (einer der I2C Port)
 """
 
 import time
@@ -29,10 +27,8 @@ REG_PWR_CONF = 0x7C
 REG_PWR_CTRL = 0x7D
 REG_CMD = 0x7E
 
-
+# Step Counter für Grove BMA456
 class StepCounter:
-    """Step Counter für Grove BMA456"""
-    
     def __init__(self):
         self._steps = 0
         self.running = False
@@ -47,9 +43,9 @@ class StepCounter:
             return
         
         self._init_bma456()
-    
+
+    # Sucht und initialisiert BMA456
     def _init_bma456(self):
-        """Sucht und initialisiert BMA456"""
         try:
             for addr in [BMA456_ADDR_LOW, BMA456_ADDR_HIGH]:
                 try:
@@ -72,8 +68,8 @@ class StepCounter:
             print(f"⚠️  I2C Fehler: {e}")
             self.sensor_type = "Dummy"
     
+    # Sicheres I2C Schreiben mit Retry
     def _i2c_write(self, reg, value):
-        """Sicheres I2C Schreiben mit Retry"""
         for attempt in range(3):
             try:
                 with SMBus(1) as bus:
@@ -88,8 +84,9 @@ class StepCounter:
                     return False
         return False
     
+    # Konfiguriert BMA456 mit korrektem Timing
     def _configure_sensor(self):
-        """Konfiguriert BMA456 mit korrektem Timing"""
+        
         if not self.i2c_addr:
             return
         
@@ -125,8 +122,8 @@ class StepCounter:
         except Exception as e:
             print(f"⚠️  Konfiguration fehlgeschlagen: {e}")
     
+    # Liest Beschleunigung in g - KORRIGIERTE SKALIERUNG
     def _read_acceleration(self):
-        """Liest Beschleunigung in g - KORRIGIERTE SKALIERUNG"""
         if not self.i2c_addr:
             return None
         
@@ -144,7 +141,7 @@ class StepCounter:
                 if y_raw > 32767: y_raw -= 65536
                 if z_raw > 32767: z_raw -= 65536
                 
-                # KORRIGIERTE Skalierung!
+                # Angepasste Skalierung!
                 # BMA456: 16-bit signed, Full Scale = ±range
                 # Bei ±4g: 32768 LSB = 4g → 1g = 8192 LSB
                 # scale = range / 32768
@@ -159,8 +156,9 @@ class StepCounter:
         except Exception:
             return None
     
+    # Step Counting starten
     def start(self):
-        """Step Counting starten"""
+        
         self._steps = 0
         self.running = True
         
@@ -171,8 +169,9 @@ class StepCounter:
         else:
             print("🚶 Step Counter (Dummy) gestartet")
     
+    # Verbesserte Schrittzählung
     def _count_steps_loop(self):
-        """Verbesserte Schrittzählung"""
+        
         # Glättung
         mag_history = []
         history_size = 5
@@ -232,8 +231,9 @@ class StepCounter:
             except Exception:
                 time.sleep(0.1)
     
+    # Stoppen
     def stop(self):
-        """Stoppen"""
+        
         self.running = False
         if self._thread:
             self._thread.join(timeout=1.0)
@@ -256,8 +256,8 @@ class StepCounter:
     def current_steps(self):
         return self._steps
     
+    # Debug: Rohdaten
     def get_raw_acceleration(self):
-        """Debug: Rohdaten"""
         accel = self._read_acceleration()
         if accel:
             x, y, z = accel
@@ -290,7 +290,7 @@ if __name__ == "__main__":
             data = counter.get_raw_acceleration()
             if data:
                 m = data['magnitude']
-                # Bei Ruhe sollte ~1.0g sein!
+                # Bei Ruhe sollte ~1.0g sein
                 status = "✅" if 0.9 < m < 1.1 else "⚠️"
                 bar = '█' * min(int(m * 20), 40)
                 print(f"X:{data['x']:+.2f} Y:{data['y']:+.2f} Z:{data['z']:+.2f} | {m:.2f}g {status} {bar}")

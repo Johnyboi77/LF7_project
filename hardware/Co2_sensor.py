@@ -1,6 +1,6 @@
-# 1. Ultra-robuste Co2_sensor.py
-#!/usr/bin/env python3
-"""CO2 Sensor (SGP30) - Ultra-robust"""
+"""CO2 Sensor (SGP30) - Ultra-robust
+   PORT: I2C (einer der I2C Port)
+"""
 import config
 import time
 
@@ -21,7 +21,7 @@ class CO2Sensor:
         
         if SENSOR_AVAILABLE:
             try:
-                i2c = board.I2C()
+                i2c = board.I2C() # HARDCODED (einer der I2C Port)
                 self.sensor = adafruit_sgp30.Adafruit_SGP30(i2c)
                 self.sensor.iaq_init()
                 time.sleep(1)

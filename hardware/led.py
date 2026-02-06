@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 LED Control - NUR für CO2-Warnungen
 PORT: D2 (HARDCODED)
@@ -23,23 +22,23 @@ class LED:
         self.blink_stop = False
         
         print(f"✅ LED auf {self.pin_name} initialisiert")
-    
+
+    # LED dauerhaft einschalten (CO2 Warning)
     def on(self):
-        """LED dauerhaft einschalten (CO2 Warning)"""
         self.blink_stop = True
         if self.blink_thread and self.blink_thread.is_alive():
             self.blink_thread.join(timeout=0.1)
         self.led.on()
     
+    # LED ausschalten (CO2 normal)
     def off(self):
-        """LED ausschalten (CO2 normal)"""
         self.blink_stop = True
         if self.blink_thread and self.blink_thread.is_alive():
             self.blink_thread.join(timeout=0.1)
         self.led.off()
     
+    # LED schnell blinken (CO2 Critical)
     def blink_fast(self):
-        """LED schnell blinken (CO2 Critical)"""
         self.blink(LED_BLINK_FAST, LED_BLINK_FAST)
     
     def blink(self, on_time=0.1, off_time=0.1):
@@ -64,20 +63,18 @@ class LED:
         )
         self.blink_thread.start()
     
+    # Internal blink loop
     def _blink_loop(self, on_time, off_time):
-        """Internal blink loop"""
         while not self.blink_stop:
             self.led.on()
             sleep(on_time)
-            
             if self.blink_stop:
                 break
-            
             self.led.off()
             sleep(off_time)
-    
+
+    # Ressourcen freigeben
     def cleanup(self):
-        """Ressourcen freigeben"""
         self.blink_stop = True
         if self.blink_thread and self.blink_thread.is_alive():
             self.blink_thread.join(timeout=1.0)

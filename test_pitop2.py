@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 🧪 TEST MODE - pi-top 2
 Schnelldurchlauf: 10s Pause

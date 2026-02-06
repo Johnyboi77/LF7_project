@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Discord Message Templates & Notification Service
 Kombiniert Templates und Versand-Logik

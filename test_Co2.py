@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 🧪 LED & CO2 Test - 10 Minuten kontinuierliche Überwachung
 Testet: CO2-Sensor, LED-Warnung, Discord-Benachrichtigungen

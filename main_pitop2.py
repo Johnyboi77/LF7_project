@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
 """
-🧪 TEST MODE - pi-top 2
-Schnelldurchlauf: 10s Pause
-DB speichert hochgerechnete Werte (x60)
-Holt CO2-Daten aus DB für Report
+🚶 BREAK STATION - pi-top 2
+Pausensystem: Schrittzähler, Break-Tracking
+Pausenphase: 10 Min | Holt CO2-Daten aus DB
 """
 
 import os
@@ -22,18 +20,18 @@ from hardware import StepCounter
 from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
 
-# TEST MODE CONFIGURATION
-BREAK_DURATION = 600     # 10 Minuten (statt 600s)
-DB_MULTIPLIER = 1           # Werte x60 für DB
+# ═══════════════════════════════════════════════════════════════
+# TIMER KONFIGURATION
+# ═══════════════════════════════════════════════════════════════
+BREAK_DURATION = 10 * 60     # 10 Minuten (600 Sekunden)
 
 
 class BreakStation:
     def __init__(self):
         print("\n" + "="*60)
-        print("🧪 TEST MODE - BREAK STATION - pi-top 2")
+        print("🚶 BREAK STATION - pi-top 2")
         print("="*60)
-        print("⚡ Schnelldurchlauf aktiviert!")
-        print(f"   Pausenphase: {BREAK_DURATION}s → DB: {BREAK_DURATION * DB_MULTIPLIER}s")
+        print(f"   Pausenphase: {BREAK_DURATION // 60} Minuten")
         print("="*60 + "\n")
         
         # Hardware
@@ -60,10 +58,12 @@ class BreakStation:
         
         print(f"✅ Initialisierung abgeschlossen\n")
     
-    # ===== POLLING =====
+    # ═══════════════════════════════════════════════════════════════
+    # POLLING
+    # ═══════════════════════════════════════════════════════════════
     
     def start_polling(self):
-        print("⏳ Starte Datenbank-Polling (TEST)...")
+        print("⏳ Starte Datenbank-Polling...")
         print("   → Suche nach timer_status='break' alle 1 Sekunde\n")
         
         self.polling_thread = Thread(target=self._polling_loop, daemon=True)
@@ -100,7 +100,7 @@ class BreakStation:
                     self.pause_number = session.get('pause_count', 0) + 1
                     self.user_name = session.get('user_name', 'User')
                     
-                    print(f"\n✅ BREAK-SIGNAL ERKANNT (TEST)!")
+                    print(f"\n✅ BREAK-SIGNAL ERKANNT!")
                     print(f"   Session: {session_id[:8]}...")
                     print(f"   User: {self.user_name}")
                     print(f"   Pause #{self.pause_number}\n")
@@ -124,7 +124,9 @@ class BreakStation:
                 print(f"⚠️ Polling Fehler: {e}")
                 time.sleep(poll_interval)
     
-    # ===== CO2 DATA FROM DB =====
+    # ═══════════════════════════════════════════════════════════════
+    # CO2 DATA FROM DB
+    # ═══════════════════════════════════════════════════════════════
     
     def _get_co2_stats(self):
         """🌡️ Holt CO2-Statistiken aus der Datenbank"""
@@ -164,14 +166,16 @@ class BreakStation:
             print(f"⚠️ CO2-Daten Fehler: {e}")
             return None
     
-    # ===== BREAK SESSION =====
+    # ═══════════════════════════════════════════════════════════════
+    # BREAK SESSION
+    # ═══════════════════════════════════════════════════════════════
     
     def _start_break(self, user_name):
         print("="*60)
-        print(f"🧪 TEST - PAUSE #{self.pause_number} GESTARTET (10s)")
+        print(f"☕ PAUSE #{self.pause_number} GESTARTET ({BREAK_DURATION // 60} Min)")
         print("="*60)
         print(f"\n👤 User: {user_name}")
-        print(f"⏱️  Dauer: {BREAK_DURATION}s (= 10 Min simuliert)")
+        print(f"⏱️  Dauer: {BREAK_DURATION // 60} Minuten")
         print(f"👣 Schrittzähler aktiv\n")
         
         self.state = "BREAK"
@@ -179,7 +183,7 @@ class BreakStation:
         self.pause_start_time = time.time()
         
         # Schrittzähler starten
-        print("🎯 Starte StepCounter AUTOMATISCH...\n")
+        print("🎯 Starte Schrittzähler...\n")
         self.steps.start()
         
         # 10 Minuten Timer
@@ -197,7 +201,10 @@ class BreakStation:
                 
                 steps = self.steps.read()
                 
-                print(f"\r⏱️ {int(remaining)}s verbleibend | 👣 {steps:,} Schritte", 
+                # Fortschritt anzeigen
+                remaining_min = int(remaining // 60)
+                remaining_sec = int(remaining % 60)
+                print(f"\r⏱️ {remaining_min:02d}:{remaining_sec:02d} verbleibend | 👣 {steps:,} Schritte", 
                       end='', flush=True)
                 
                 time.sleep(1)
@@ -218,14 +225,14 @@ class BreakStation:
         steps = self.steps.stop()
         
         # Statistiken
-        calories = int(steps * 0.05)
-        distance = int(steps * 0.75)
+        calories = int(steps * config.CALORIES_PER_STEP)
+        distance = int(steps * config.METERS_PER_STEP)
         
         # CO2-Daten aus DB holen
         co2_stats = self._get_co2_stats()
         
         print("\n" + "="*60)
-        print(f"📊 TEST - PAUSE #{self.pause_number} STATISTIK")
+        print(f"📊 PAUSE #{self.pause_number} STATISTIK")
         print("="*60)
         print(f"\n👣 Schritte:     {steps:,}")
         print(f"🔥 Kalorien:     ~{calories} kcal")
@@ -240,8 +247,7 @@ class BreakStation:
             if co2_stats['alarm_count'] > 0:
                 print(f"⚠️  Alarme:          {co2_stats['alarm_count']}")
         
-        print(f"\n💾 Echte Zeit: {BREAK_DURATION}s")
-        print(f"💾 DB Zeit: {BREAK_DURATION * DB_MULTIPLIER}s ({BREAK_DURATION * DB_MULTIPLIER // 60} Min)\n")
+        print(f"\n💾 Pausenzeit: {BREAK_DURATION}s ({BREAK_DURATION // 60} Min)\n")
         
         # Nur speichern wenn nicht abgebrochen
         if not self.break_cancelled:
@@ -274,7 +280,7 @@ class BreakStation:
                 'step_count': steps,
                 'calories_burned': calories,
                 'distance_meters': distance,
-                'device_id': config.DEVICE_ID + "",
+                'device_id': config.DEVICE_ID,
                 'created_at': datetime.utcnow().isoformat()
             }
             
@@ -312,7 +318,7 @@ class BreakStation:
             
             description = f"""
 👤 **User:** {user_name}
-⏱️ **Pause:** #{self.pause_number}
+⏱️ **Pause:** #{self.pause_number} ({BREAK_DURATION // 60} Min)
 
 **🏃 Bewegung:**
 👣 Schritte: **{steps:,}**
@@ -340,8 +346,6 @@ class BreakStation:
                 else:
                     description += "\n🔴 **Luftqualität: Lüften empfohlen!**"
             
-            description += "\n\n🧪 **TEST MODE** (10s = 10 Min)"
-            
             color = 0x00FF00
             if co2_stats:
                 if co2_stats['avg_co2'] >= 800:
@@ -355,7 +359,7 @@ class BreakStation:
                     "description": description,
                     "color": color,
                     "timestamp": datetime.utcnow().isoformat(),
-                    "footer": {"text": "Break Station - PiTop 2 [TEST]"}
+                    "footer": {"text": "Break Station - PiTop 2"}
                 }]
             }
             
@@ -367,27 +371,28 @@ class BreakStation:
         except Exception as e:
             print(f"⚠️ Discord-Fehler: {e}")
     
-    # ===== MAIN =====
+    # ═══════════════════════════════════════════════════════════════
+    # MAIN
+    # ═══════════════════════════════════════════════════════════════
     
     def start(self):
         print("\n" + "="*60)
-        print("✅ TEST BREAK STATION AKTIV")
+        print("✅ BREAK STATION AKTIV")
         print("="*60)
         print(f"\n🔧 Device: {config.DEVICE_ID}")
         print(f"📡 Supabase: {'✅' if self.db.client else '❌'}")
         print(f"🤖 Discord: {'✅' if self.notify.is_enabled else '❌'}")
         print(f"📊 Schrittzähler: ✅")
         
-        print("\n🧪 TEST-MODUS:")
-        print(f"   ⚡ Pausenphase: {BREAK_DURATION}s (statt 10 Min)")
-        print(f"   📊 DB Multiplikator: x{DB_MULTIPLIER}")
+        print(f"\n⏱️ TIMER-EINSTELLUNGEN:")
+        print(f"   Pausenphase: {BREAK_DURATION // 60} Minuten")
         print(f"   💨 CO2-Daten: Werden aus DB geladen")
         
         print("\n💡 FUNKTIONSWEISE:")
         print("   1. 🔄 Pollt DB (jede Sekunde)")
         print("   2. ✅ Erkennt timer_status='break'")
-        print("   3. 🏃 Startet StepCounter")
-        print("   4. ⏱️ Läuft 10 Minuten")
+        print("   3. 🏃 Startet Schrittzähler")
+        print(f"   4. ⏱️ Läuft {BREAK_DURATION // 60} Minuten")
         print("   5. 💨 Holt CO2-Daten aus DB")
         print("   6. 💾 Speichert Break-Daten")
         print("   7. 📱 Sendet Discord (mit CO2)")
@@ -397,7 +402,8 @@ class BreakStation:
         print("   Steuerung erfolgt über PiTop 1")
         
         print("\n" + "="*60)
-        print("👉 Warte auf Break-Signal von PiTop 1...\n")
+        print("👉 Warte auf Break-Signal von PiTop 1...")
+        print("="*60 + "\n")
         
         self.start_polling()
         
@@ -409,7 +415,7 @@ class BreakStation:
             self.stop()
     
     def stop(self):
-        print("\n\n🛑 Test Break Station wird gestoppt...")
+        print("\n\n🛑 Break Station wird gestoppt...")
         
         self.polling_active = False
         

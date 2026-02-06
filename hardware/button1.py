@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Button 1 - Work Session Start
 PORT: D0 (HARDCODED)

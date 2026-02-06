@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Button 2 - Pause & Storno Control
 PORT: D1 (HARDCODED)
@@ -24,7 +23,7 @@ except ImportError:
 
 class Button2:
     def __init__(self):
-        self.pin_name = "D1"  # 🔒 HARDCODED
+        self.pin_name = "D1"  # HARDCODED
         self.press_start = None
         
         # Callbacks
@@ -115,6 +114,7 @@ class Button2:
         
         # Short Press - Pause starten
         if duration <= SHORT_PRESS_MAX:
+            
             # Prüfen ob Arbeitsphase aktiv - Pause nur möglich wenn KEINE Arbeit läuft
             work_active = self.is_work_active_cb() if self.is_work_active_cb else False
             

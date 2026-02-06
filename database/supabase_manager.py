@@ -1,4 +1,3 @@
-# database/supabase_manager.py
 """
 Supabase Database Manager
 Verwaltet Verbindung und Operationen für beide PiTops
@@ -29,8 +28,8 @@ class SupabaseManager:
             print(f"❌ Supabase Verbindungsfehler: {e}")
             self.client = None
     
+    # Testet Datenbankverbindung
     def _test_connection(self):
-        """Testet Datenbankverbindung"""
         try:
             response = self.client.table('sessions').select("id").limit(1).execute()
             print(f"✅ Datenbank erreichbar ({len(response.data) if hasattr(response, 'data') else 0} sessions)")
@@ -39,8 +38,8 @@ class SupabaseManager:
     
     # ===== SESSION MANAGEMENT =====
     
+    # Erstellt neue Session (nur PiTop 1)
     def create_session(self):
-        """Erstellt neue Session (nur PiTop 1)"""
         if not self.client:
             return None
         
@@ -69,8 +68,8 @@ class SupabaseManager:
             print(f"❌ Session-Fehler: {e}")
             return None
     
+    # Aktualisiert Timer-Status (working, work_ended, break, break_ended)
     def update_timer_status(self, session_id, status):
-        """Aktualisiert Timer-Status (working, work_ended, break, break_ended)"""
         if not self.client or not session_id:
             return False
         
@@ -87,8 +86,8 @@ class SupabaseManager:
             print(f"❌ Status-Update Fehler: {e}")
             return False
     
+    # Erhöht pause_count um 1
     def increment_pause_count(self, session_id):
-        """Erhöht pause_count um 1"""
         if not self.client or not session_id:
             return False
         
@@ -116,8 +115,8 @@ class SupabaseManager:
             print(f"❌ Pause-Count Fehler: {e}")
             return False
     
+    # Beendet Session
     def end_session(self, session_id, total_work_time, total_pause_time):
-        """Beendet Session"""
         if not self.client or not session_id:
             return False
         
@@ -141,8 +140,8 @@ class SupabaseManager:
     
     # ===== LOGGING =====
     
+    # Loggt CO2-Messung
     def log_co2(self, session_id, co2_level, tvoc_level=None, is_alarm=False, alarm_type=None):
-        """Loggt CO2-Messung"""
         if not self.client:
             return False
         
@@ -163,8 +162,8 @@ class SupabaseManager:
             print(f"❌ CO2 Log Fehler: {e}")
             return False
     
+    # Loggt Schritte (PiTop 2)
     def log_steps(self, session_id, pause_number, step_count, calories, distance):
-        """Loggt Schritte (PiTop 2)"""
         if not self.client:
             return False
         
@@ -188,8 +187,8 @@ class SupabaseManager:
     
     # ===== QUERIES (für PiTop 2) =====
     
+    # Holt aktuelle Session (ohne end_time)
     def get_active_session(self):
-        """Holt aktuelle Session (ohne end_time)"""
         if not self.client:
             return None
         
@@ -213,6 +212,7 @@ class SupabaseManager:
             print(f"❌ Query-Fehler: {e}")
             return None
     
+    # Holt aktuellen Timer-Status
     def get_timer_status(self, session_id):
         """Holt aktuellen Timer-Status"""
         if not self.client or not session_id:
@@ -236,8 +236,8 @@ class SupabaseManager:
     
     # ===== REPORT DATA =====
     
+    # Holt alle Daten für Report
     def get_session_report_data(self, session_id):
-        """Holt alle Daten für Report"""
         if not self.client or not session_id:
             return None
         
