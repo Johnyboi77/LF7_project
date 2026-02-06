@@ -1,5 +1,3 @@
-/* Keep supabase db for this project alive */
-
 export default async function handler(req, res) {
   const SUPABASE_URL = 'https://lbaeftxthrpajcgdxdcz.supabase.co';
   const SUPABASE_KEY = process.env.SUPABASE_KEY;
@@ -14,26 +12,35 @@ export default async function handler(req, res) {
         'Prefer': 'return=minimal'
       },
       body: JSON.stringify({
-        session_id: crypto.randomUUID(),
+        // Existierende session_id verwenden
+        session_id: '41b8d4bd-af77-464c-a0a0-d0add38afeac',
         pause_number: 0,
         step_count: 0,
         calories_burned: '0',
         distance_meters: '0',
         device_id: 'cron'
+        // id wird automatisch hochgezählt (3, 4, 5, ...)
       })
     });
 
     if (response.ok) {
       return res.status(200).json({ 
-        success: true, 
-        message: 'Database alive!',
+        success: true,
+        message: 'Database alive - new entry added!',
         timestamp: new Date().toISOString()
       });
     } else {
       const error = await response.text();
-      return res.status(500).json({ success: false, error });
+      return res.status(200).json({ 
+        success: false,
+        error: error
+      });
     }
+
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 }
