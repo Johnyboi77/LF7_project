@@ -2,7 +2,7 @@
 #ausführen mit:  ./Push.sh
 
 REPO_PATH="/mnt/c/Users/knigh/LF7_project"
-REMOTE_URL="https://github.com/Johnyboi77/ lf7_project_keepalive.git"
+REMOTE_URL="https://github.com/Johnyboi77/ LF7_project.git"
 BRANCH="main"
 
 # lf7_project_keepalive --> Für Cron
@@ -22,7 +22,7 @@ if [ ! -d ".git" ]; then
 fi 
 
 git add .
-git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - Cron Job hinzugefügt"
+git commit -m "$(date '+%Y-%m-%d %H:%M:%S') - "
 git push origin "$BRANCH"
 
 echo "✅ Push erfolgreich!"

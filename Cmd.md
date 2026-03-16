@@ -15,8 +15,8 @@ cd LF7_project
 --> Brauchen zuerst Wlan
 --> Laptop & Pitop müssen anschlieeßnd im gleichen Netz sein
 
-ssh pi@10.128.206.178
-ssh pi@10.128.206.115
+ssh pi@10.218.70.60
+ssh pi@10.218.70.178 
 
 >Passwort: pi-top
 
