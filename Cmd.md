@@ -38,8 +38,8 @@ tar -czf LF7_project.tar.gz \
 
 # Archiv auf PiTops übertragen (Laptop Terminal)
 cd /mnt/c/Users/knigh
-scp LF7_project.tar.gz pi@10.128.206.178:~/
-scp LF7_project.tar.gz pi@10.128.206.115:~/
+scp LF7_project.tar.gz pi@10.218.70.60:~/
+scp LF7_project.tar.gz pi@10.218.70.178:~/
 
 >Passwort: pi-top
 
