@@ -1,6 +1,7 @@
 Push.sh
 .env
 Cmd.md
+SensorDoku.md
 
 node_modules/
 pycache/
