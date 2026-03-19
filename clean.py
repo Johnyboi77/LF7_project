@@ -26,6 +26,8 @@ def kill_gpio_processes():
     processes_to_kill = [
         'test_pitop1.py',
         'test_pitop2.py',
+        'main_pitop1.py',      
+        'main_pitop2.py', 
         'main.py',
         'pitop',
         'python.*gpio',
