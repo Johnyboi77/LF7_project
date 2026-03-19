@@ -157,10 +157,6 @@ def test_5_timer_alarm(buzzer):
     test_sound(buzzer, 'timer_alarm', BUZZER_SOUNDS['timer_alarm'], "Timer Alarm")
     wait_for_input()
 
-def test_6_continuous():
-    """Test 6: Kontinuierliches Signal (On/Off)"""
-    print_header("TEST 6: KONTINUIERLICHES SIGNAL", "Buzzer on() / off()")
-
     try:
         buzzer = Buzzer()
         print("🔊 Buzzer einschalten (2 Sekunden)...")
@@ -220,7 +216,6 @@ if __name__ == "__main__":
         test_3_double_beep(buzzer)
         test_4_co2_alarm(buzzer)
         test_5_timer_alarm(buzzer)
-        test_6_continuous()
 
         # Cleanup
         print("\n" + "="*60)
@@ -233,7 +228,7 @@ if __name__ == "__main__":
         print("✅ ALLE TESTS ABGESCHLOSSEN!")
         print("="*60)
         print("\n📊 Zusammenfassung:")
-        print("   • 6 Buzzer-Signale getestet")
+        print("   • 5 Buzzer-Signale getestet")
         print("   • Alle Töne und Patterns funktionieren")
         print("   • Dokumentation: Siehe oben")
         print()
