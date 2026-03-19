@@ -208,7 +208,7 @@ CO2 Sensor (SGP30)	I2C (0x5A)	Luftqualität (eCO2 + TVOC)
 
 PiTop 2 - Pausenzone
 Komponente	Port	Funktion
-Step Counter (BMA400)	I2C (0x14)	Schritte, Kalorien, Distanz
+Step Counter (BMA456)	I2C (0x14)	Schritte, Kalorien, Distanz
 
 📊 Datenbank-Schema
 
