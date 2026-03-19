@@ -22,6 +22,29 @@ from services.timer_service import TimerService
 from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
 
+# ============================================================
+# GPIO CLEANUP - Ressourcen vor Start freigeben
+# ============================================================
+print("🧹 Bereinige GPIO-Pins vor Start...")
+try:
+    from gpiozero import Device
+    Device.close()
+except Exception as e:
+    pass
+
+try:
+    import lgpio
+    # Alle GPIO-Handles schließen
+    for handle in range(10):
+        try:
+            lgpio.gpiochip_close(handle)
+        except:
+            pass
+except:
+    pass
+
+print("✅ GPIO-Cleanup abgeschlossen\n")
+
 # 🧪 TEST MODE CONFIGURATION
 TEST_WORK_DURATION = 30      # 30 Sekunden (statt 1800s)
 TEST_BREAK_DURATION = 10     # 10 Sekunden (statt 600s)
@@ -246,10 +269,13 @@ class TestLearningSession:
         
         # UI Feedback
         self.buzzer.beep(0.2)
-        
+
         # Discord
         self.notify.send_work_finished()
-        
+
+        # DB: Pause Count erhöhen
+        self.db.increment_pause_count(self.session_id)
+
         # DB-Status update
         self._update_break_status('break')
         
@@ -411,16 +437,17 @@ class TestLearningSession:
         
         # Report aus DB holen
         if self.session_id:
-            report_data = self.db.get_session_report_data(self.session_id)
-            
-            # Session in DB beenden
+            # 1. ZUERST Session in DB beenden (Daten schreiben)
             self.db.end_session(
                 self.session_id,
                 db_work_time,
                 db_break_time
             )
-            
-            # Report
+
+            # 2. DANN Report holen (mit aktuellen Daten aus DB)
+            report_data = self.db.get_session_report_data(self.session_id)
+
+            # 3. Report anzeigen
             if report_data:
                 self.notify.print_terminal_report(report_data)
                 self.notify.send_session_report(report_data)
@@ -451,9 +478,9 @@ class TestLearningSession:
             # Counter erhöhen
             self.co2_log_counter += 1
             
-            # Nur alle 30 Aufrufe loggen (30s bei 1s Loop) ODER bei Alarm
+            # Nur alle CO2_LOG_INTERVAL Aufrufe loggen ODER bei Alarm
             is_alarm = alarm_status in ["warning", "critical"]
-            should_log = (self.co2_log_counter >= 30) or is_alarm
+            should_log = (self.co2_log_counter >= CO2_LOG_INTERVAL) or is_alarm
             
             if self.session_id and co2_level and should_log:
                 self.db.log_co2(

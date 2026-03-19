@@ -22,6 +22,29 @@ from services.timer_service import TimerService
 from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
 
+# ============================================================
+# GPIO CLEANUP - Ressourcen vor Start freigeben
+# ============================================================
+print("🧹 Bereinige GPIO-Pins vor Start...")
+try:
+    from gpiozero import Device
+    Device.close()
+except Exception as e:
+    pass
+
+try:
+    import lgpio
+    # Alle GPIO-Handles schließen
+    for handle in range(10):
+        try:
+            lgpio.gpiochip_close(handle)
+        except:
+            pass
+except:
+    pass
+
+print("✅ GPIO-Cleanup abgeschlossen\n")
+
 # ═══════════════════════════════════════════════════════════════
 # TIMER KONFIGURATION
 # ═══════════════════════════════════════════════════════════════
@@ -252,7 +275,10 @@ class LearningSession:
         
         # Discord
         self.notify.send_work_finished()
-        
+
+        # DB: Pause Count erhöhen
+        self.db.increment_pause_count(self.session_id)
+
         # DB-Status update
         self._update_break_status('break')
         
@@ -415,16 +441,17 @@ class LearningSession:
         
         # Report aus DB holen
         if self.session_id:
-            report_data = self.db.get_session_report_data(self.session_id)
-            
-            # Session in DB beenden
+            # 1. ZUERST Session in DB beenden (Daten schreiben)
             self.db.end_session(
                 self.session_id,
                 self.total_work_time,
                 self.total_break_time
             )
-            
-            # Report
+
+            # 2. DANN Report holen (mit aktuellen Daten aus DB)
+            report_data = self.db.get_session_report_data(self.session_id)
+
+            # 3. Report anzeigen
             if report_data:
                 self.notify.print_terminal_report(report_data)
                 self.notify.send_session_report(report_data)

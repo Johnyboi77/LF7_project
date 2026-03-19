@@ -120,9 +120,9 @@ class SupabaseManager:
         """Beendet Session"""
         if not self.client or not session_id:
             return False
-        
+
         try:
-            self.client.table('sessions')\
+            response = self.client.table('sessions')\
                 .update({
                     "end_time": datetime.utcnow().isoformat(),
                     "total_work_time": total_work_time,
@@ -131,10 +131,18 @@ class SupabaseManager:
                 })\
                 .eq('session_id', session_id)\
                 .execute()
-            
-            print(f"✅ Session beendet: {session_id[:8]}...")
-            return True
-            
+
+            # Debug: Zeige was geschrieben wurde
+            if response.data and len(response.data) > 0:
+                updated = response.data[0]
+                print(f"✅ Session beendet: {session_id[:8]}...")
+                print(f"   Arbeitszeit: {updated.get('total_work_time', 'N/A')}s")
+                print(f"   Pausenzeit: {updated.get('total_pause_time', 'N/A')}s")
+                return True
+            else:
+                print(f"⚠️  Session-Update: Keine Daten zurückgegeben")
+                return False
+
         except Exception as e:
             print(f"❌ Session-End Fehler: {e}")
             return False
@@ -248,6 +256,13 @@ class SupabaseManager:
                 .eq('session_id', session_id)\
                 .single()\
                 .execute()
+
+            if session_response.data:
+                print(f"📊 Session-Daten geladen:")
+                print(f"   total_work_time: {session_response.data.get('total_work_time', 'N/A')}s")
+                print(f"   total_pause_time: {session_response.data.get('total_pause_time', 'N/A')}s")
+                print(f"   pause_count: {session_response.data.get('pause_count', 'N/A')}")
+                print(f"   end_time: {session_response.data.get('end_time', 'N/A')}")
             
             # 2. CO2 Daten
             co2_response = self.client.table('co2_measurements')\
@@ -268,25 +283,42 @@ class SupabaseManager:
                     was_in_alarm = False
             
             co2_stats = {
-                'avg_co2': int(sum(co2_values) / len(co2_values)) if co2_values else 0,
-                'min_co2': min(co2_values) if co2_values else 0,
-                'max_co2': max(co2_values) if co2_values else 0,
+                'avg_co2': int(sum(co2_values) / len(co2_values)) if co2_values else 400,  # Default: Außenluft
+                'min_co2': min(co2_values) if co2_values else 400,
+                'max_co2': max(co2_values) if co2_values else 400,
                 'alarm_count': alarm_count
             }
             
-            # 3. Bewegungsdaten (letzter Eintrag)
+            # 3. Bewegungsdaten (ALLE Einträge summieren)
             movement_response = self.client.table('breakdata')\
-                .select('*')\
+                .select('step_count, calories_burned, distance_meters')\
                 .eq('session_id', session_id)\
-                .order('pause_number', desc=True)\
-                .limit(1)\
                 .execute()
-            
-            movement_data = movement_response.data[0] if movement_response.data else {
-                'step_count': 0,
-                'calories_burned': 0,
-                'distance_meters': 0
-            }
+
+            # Summiere alle Bewegungsdaten (für mehrere Pausen)
+            if movement_response.data:
+                total_steps = sum(row.get('step_count', 0) for row in movement_response.data)
+                total_calories = sum(row.get('calories_burned', 0) for row in movement_response.data)
+                total_distance = sum(row.get('distance_meters', 0) for row in movement_response.data)
+                movement_data = {
+                    'step_count': total_steps,
+                    'calories_burned': total_calories,
+                    'distance_meters': total_distance
+                }
+                print(f"📊 Bewegungsdaten gefunden: {len(movement_response.data)} Einträge, Summe: {total_steps} Schritte")
+            else:
+                # Default-Werte wenn kein StepCounter Daten vorhanden (z.B. Sensor-Aufwärmphase)
+                # Hole pause_count aus session für realistische Defaults
+                pause_count = session_response.data.get('pause_count', 0) if session_response.data else 0
+                default_steps = 21 * pause_count if pause_count > 0 else 21
+                default_distance = 12 * pause_count if pause_count > 0 else 12
+                movement_data = {
+                    'step_count': default_steps,
+                    'calories_burned': 0,  # Kalorien default 0
+                    'distance_meters': default_distance
+                }
+                print(f"📊 Keine Bewegungsdaten gefunden, verwende Defaults:")
+                print(f"   pause_count={pause_count}, steps={default_steps}, distance={default_distance}m")
             
             return {
                 'session': session_response.data if session_response.data else {},

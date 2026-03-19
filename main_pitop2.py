@@ -20,6 +20,29 @@ from hardware import StepCounter
 from services.discord_templates import NotificationService
 from database.supabase_manager import SupabaseManager
 
+# ============================================================
+# GPIO CLEANUP - Ressourcen vor Start freigeben
+# ============================================================
+print("🧹 Bereinige GPIO-Pins vor Start...")
+try:
+    from gpiozero import Device
+    Device.close()
+except Exception as e:
+    pass
+
+try:
+    import lgpio
+    # Alle GPIO-Handles schließen
+    for handle in range(10):
+        try:
+            lgpio.gpiochip_close(handle)
+        except:
+            pass
+except:
+    pass
+
+print("✅ GPIO-Cleanup abgeschlossen\n")
+
 # ═══════════════════════════════════════════════════════════════
 # TIMER KONFIGURATION
 # ═══════════════════════════════════════════════════════════════
@@ -269,26 +292,25 @@ class BreakStation:
         print("✅ Bereit für nächste Pause!\n")
     
     def _save_break_data(self, steps, calories, distance):
-        if not self.db.client or not self.session_id:
+        if not self.session_id:
             print("⚠️ Kann Break-Daten nicht speichern")
             return
-        
+
         try:
-            data = {
-                'session_id': self.session_id,
-                'pause_number': self.pause_number,
-                'step_count': steps,
-                'calories_burned': calories,
-                'distance_meters': distance,
-                'device_id': config.DEVICE_ID,
-                'created_at': datetime.utcnow().isoformat()
-            }
-            
-            result = self.db.client.table('breakdata').insert(data).execute()
-            
-            if result.data:
+            # Verwende die zentrale db.log_steps() Funktion
+            success = self.db.log_steps(
+                session_id=self.session_id,
+                pause_number=self.pause_number,
+                step_count=steps,
+                calories=calories,
+                distance=distance
+            )
+
+            if success:
                 print("✅ Break-Daten in DB gespeichert")
-        
+            else:
+                print("⚠️ Break-Daten-Speicherung fehlgeschlagen")
+
         except Exception as e:
             print(f"❌ DB-Fehler: {e}")
     
